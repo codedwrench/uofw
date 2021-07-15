@@ -4,7 +4,7 @@
 enum RegKeyTypes 
 {
   REG_TYPE_DIR = 1,
-  REG_TYPE_s32,
+  REG_TYPE_INT,
   REG_TYPE_STR,
   REG_TYPE_BIN
 };
