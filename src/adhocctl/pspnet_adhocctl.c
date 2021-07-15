@@ -32,6 +32,10 @@ SCE_SDK_VERSION(SDK_VERSION);
 
 s32 GetSSIDPrefix(char *ssidPrefix);
 
+s32 sceNetAdhocctlInit(s32 stackSize, s32 priority, struct ProductStruct* product) {
+
+}
+
 s32 GetSSIDPrefix(char *ssidPrefix)
 {
     u32 prefixSize;
@@ -63,5 +67,5 @@ s32 GetSSIDPrefix(char *ssidPrefix)
     }
 
     prefixSize = sceNetStrlen(g_DefSSIDPrefix);
-    return (int) sceKernelMemcpy(ssidPrefix, g_DefSSIDPrefix, prefixSize);
+    return (s32) sceKernelMemcpy(ssidPrefix, g_DefSSIDPrefix, prefixSize);
 }
