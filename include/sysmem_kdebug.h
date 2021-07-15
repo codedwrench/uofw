@@ -19,6 +19,7 @@ SceKernelDeci2Ops *sceKernelDeci2pReferOperations(void);
 void *sceKernelSm1ReferOperations();
 
 void Kprintf(const char *format, ...);
+int sceKernelPrintf(const char *fmt, ...);
 
 int sceKernelDipsw(u32 reg);
 u32 sceKernelDipswAll();
