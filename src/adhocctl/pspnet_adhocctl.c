@@ -65,7 +65,7 @@ s32 sceNetAdhocctlInit(s32 stackSize, s32 priority, struct ProductStruct* produc
             g_Init = 0;
             break;
         }
-        if ((i >= 9) && (product->adhocId == 1)) {
+        if ((i >= 9) && (product->adhocId == SCE_NET_ADHOCCTL_ADHOCTYPE_RESERVED)) {
             sceKernelPrintf("WARNING: SCE_NET_ADHOCCTL_ADHOCTYPE_RESERVED as adhoc_id is for debugging purposes only");
         }
 
