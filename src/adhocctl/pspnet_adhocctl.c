@@ -62,6 +62,7 @@ s32 sceNetAdhocctlInit(s32 stackSize, s32 priority, struct ProductStruct* produc
 
     for (i = 0; i < (sizeof(product->product)); i++) {
         if (product->product[i] == '\0') {
+            g_Init = 0;
             break;
         }
         if ((i >= 9) && (product->adhocId == 1)) {
