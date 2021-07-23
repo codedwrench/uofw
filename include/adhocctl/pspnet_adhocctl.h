@@ -1,6 +1,11 @@
+/* Copyright (C) 2021 The uOFW team
+See the file COPYING for copying permission.
+*/
+
 #ifndef PSPNET_ADHOCCTL_H
 #define PSPNET_ADHOCCTL_H
 
+extern const char g_WifiAdapter[];
 extern const char g_DefSSIDPrefix[];
 extern const char g_AdhocRegString[];
 extern const char g_SSIDPrefixRegKey[];

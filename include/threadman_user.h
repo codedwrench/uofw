@@ -21,6 +21,8 @@ typedef struct {
 	s32 id; // 16
 } SceLwMutex;
 
+int sceKernelCreateLwMutex(s32* workarea, const char* name, u32 attr, s32 initcnt, s32* optparam);
+
 s32 _sceKernelLockLwMutexCB(SceLwMutex *mutex, s32 count);
 s32 _sceKernelLockLwMutex(SceLwMutex *mutex, s32 count);
 s32 _sceKernelUnlockLwMutex(SceLwMutex *mutex, s32 count);
