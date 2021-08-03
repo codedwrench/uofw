@@ -132,7 +132,7 @@ s32 sceNetAdhocctlInit(s32 stackSize, s32 priority, struct ProductStruct *produc
         GetSSIDPrefix(g_SSIDPrefix);
 
         // TODO Init everything else
-        // errorCode = StartAuthAndThread(stackSize, priority);
+        errorCode = StartAuthAndThread(stackSize, priority, product);
         if (errorCode < 0) {
             g_Init = 0;
         } else {
@@ -318,7 +318,7 @@ u32 InitAdhoc(struct unk_struct *unpackedArgs) {
     s32 ret;
     s32 i;
     char ssid[33];
-    s32 unk[5];
+    s32 clocks[5];
     char nickname[128];
     u32 channel;
     s32 unk2[3];
@@ -380,14 +380,17 @@ u32 InitAdhoc(struct unk_struct *unpackedArgs) {
                 }
 
                 if(!err) {
-                    // TODO: What does this mean?
-                    unk[0] = 1000000;
-                    unk[1] = 500000;
-                    unk[2] = 5;
-                    unk[3] = 30000000;
-                    unk[4] = 300000000;
+                    // Used as first arg in sceKernelSetAlarm in several places
+                    // As clock	- The number of micro seconds till the alarm occurs.
+                    clocks[0] = 1000000;
+                    clocks[1] = 500000;
+                    clocks[2] = 5;
+                    clocks[3] = 30000000;
+                    clocks[4] = 300000000;
 
-                    ret = sceNetAdhocAuth_lib_0x89F2A732(g_SSIDPrefix, 0x30, 0x2000, unk);
+                    // Disassembler points to connectionState as being called from the global, so give as global for now.
+                    ret = sceNetAdhocAuthCreateStartThread(g_SSIDPrefix, 0x30, 0x2000, clocks,
+                                                           &g_Unk.connectionState, nickname);
                     if (ret < 0) {
                         err = 1;
                     } else {

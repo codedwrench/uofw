@@ -18,14 +18,17 @@ s32 sceNetAdhocAuthInit();
 s32 sceNetAdhocAuth_lib_0x2E6AA271();
 
 /**
- * Initializes something in the the sceNet auth lib.
+ * Creates and starts thread in the the sceNetAdhocAuth lib. (sceNetAdhocAuth_driver_0x89F2A732)
  * @param name Name of the interface.
- * @param unk
- * @param unk2
- * @param unk3
+ * @param priority Priority of the thread to create.
+ * @param stackSize Size that the stack for the thread needs to be.
+ * @param clocks Used in sceKernelSetAlarm functions as number of micro seconds till the alarm occurs.
+ * @param connectionState Pointer to the current connection state in this module.
+ * @param nickname The username in use on the PSP.
  * @return 0 if successful.
  */
-s32 sceNetAdhocAuth_lib_0x89F2A732(const char* name, s32 unk, s32 unk2, s32* unk3);
+s32 sceNetAdhocAuthCreateStartThread(const char *name, s32 priority, s32 stackSize, s32 *clocks, s32 *connectionState,
+                                     const char *nickname);
 
 /**
  * Terminates the adhoc auth module.
