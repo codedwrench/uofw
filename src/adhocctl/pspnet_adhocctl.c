@@ -374,7 +374,9 @@ u32 InitAdhoc(struct unk_struct *unpackedArgs) {
                     err = 1;
                 } else {
                     ret = sceUtilityGetSystemParamString(1, nickname, sizeof(nickname));
-                    err = 1;
+                    if(ret < 0) {
+                        err = 1;
+                    }
                 }
 
                 if(!err) {
@@ -415,7 +417,7 @@ s32 GetChannelAndSSID(struct unk_struct *unpackedArgs, char *ssid, u32 *channel)
     s32 ret;
 
     // TODO: Why is this being memsetted here again?
-    sceKernelMemset(ssid, 0, 33);
+    sceKernelMemset(ssid, 0, (sizeof(ssid)));
     ret = sceUtilityGetSystemParamInt(SYSTEMPARAM_INT_ADHOC_CHANNEL, &adhocChannel);
     if (ret >= 0) {
         if ((adhocChannel != 6) && (adhocChannel != 1)) {
