@@ -32,17 +32,26 @@ struct unk_struct g_Unk; // 0x8
 
 struct unk_struct2 g_Unk2; // 0x7E0
 
+typedef void(*unk_struct3_func)(s32 unk, s32 unk2, s32 unk3);
+
+struct unk_struct3 {
+    s32 unk;
+    unk_struct3_func func;
+    s32 func_argument;
+    s32 unk2;
+};
+
 // TODO: What's in 0x8A2 - 0x8A8 ?
 // Vars at: [((fptr) 0x4), (0xC)] * (i * 0x10)
-char g_Unk4[4][16]; // 0x8A8
+struct unk_struct3 *g_Unk4[4]; // 0x8A8
 
-char g_Unk5[4][16]; // 0x8E0
+struct unk_struct3 *g_Unk5[4]; // 0x8E0
 
 // TODO: What's in 0x920 - 0x944
 s32 g_Unk6; // 0x944
 
 s32 g_MutexInited; // 0x1948
-s32 *g_WorkAreaPtr; // 0x194C
+SceLwMutex *g_Mutex; // 0x194C
 
 const char g_WifiAdapter[] = "wifi";
 const char g_DefSSIDPrefix[] = "PSP";
@@ -51,15 +60,15 @@ const char g_SSIDPrefixRegKey[] = "ssid_prefix";
 const char g_SSIDSeparator = '_'; // 0x653c
 
 SCE_MODULE_INFO(
-        "sceNetAdhocctl_Library",
-        SCE_MODULE_ATTR_EXCLUSIVE_LOAD | SCE_MODULE_ATTR_EXCLUSIVE_START,
-        1, 6);
+"sceNetAdhocctl_Library",
+SCE_MODULE_ATTR_EXCLUSIVE_LOAD | SCE_MODULE_ATTR_EXCLUSIVE_START,
+1, 6);
 
 SCE_SDK_VERSION(SDK_VERSION);
 
 s32 CreateLwMutex();
 
-s32 GetChannelAndSSID(struct unk_struct *unpackedArgs, char *ssid, int *channel);
+s32 GetChannelAndSSID(struct unk_struct *unpackedArgs, char *ssid, u32 *channel);
 
 /**
  * Builds the SSID to be used to make the connection.
@@ -71,7 +80,7 @@ s32 GetChannelAndSSID(struct unk_struct *unpackedArgs, char *ssid, int *channel)
  *
  * @return Length of the SSID.
  */
-s32 BuildSSID(struct unk_struct *unpackedArgs, char* ssid, char adhocSubType, char *ssidSuffix);
+s32 BuildSSID(struct unk_struct *unpackedArgs, char *ssid, char adhocSubType, char *ssidSuffix);
 
 /**
  * Gets the prefix of the SSID (PSP)
@@ -136,10 +145,7 @@ s32 sceNetAdhocctlInit(s32 stackSize, s32 priority, struct ProductStruct *produc
 
 s32 StartAuthAndThread(s32 stackSize, s32 priority, struct ProductStruct *product) {
     // Seems to do something with buffers
-    s32 *tmp[4];
     s32 ret;
-
-    tmp[0] = (int *) &g_Unk;
 
     sceKernelMemset(&g_Unk, 0, sizeof(struct unk_struct));
     sceKernelMemset(g_Unk4, 0, 64);
@@ -155,29 +161,167 @@ s32 StartAuthAndThread(s32 stackSize, s32 priority, struct ProductStruct *produc
             ret = sceKernelCreateEventFlag("SceNetAdhocctl", 0, 0, 0);
             if (ret >= 0) {
                 g_Unk.eventFlags = ret;
-                g_Unk.kernelFlags = sceKernelCreateThread("SceNetAdhocctl", ThreadFunc, priority, stackSize);
+                g_Unk.kernelFlags = sceKernelCreateThread("SceNetAdhocctl", ThreadFunc, priority, stackSize, 0, 0);
             }
         }
     }
     sceNetAdhocAuthTerm();
 
+    return ret;
+}
 
+s32 SomethingWithFunctionPointers(s32 unk, s32 unk2) {
+    s32 lockRes;
+
+    struct unk_struct3 *funcPtr = g_Unk5[0];
+    u32 i = 4;
+
+    lockRes = sceKernelLockLwMutex(g_Mutex, 1);
+
+    while (i > (sizeof(g_Unk5))) {
+        if (funcPtr->func != NULL) {
+            funcPtr->func(unk, unk2, funcPtr->func_argument);
+        }
+        i--;
+        funcPtr++;
+    }
+
+    if (lockRes == 0) {
+        sceKernelUnlockLwMutex(g_Mutex, 1);
+    }
+    return 0;
+}
+
+s32 FUN_00003bc0(struct unk_struct *unpackedArgs) {
+    s32 ret;
+    s32 eventAddr;
+    s32 unk;
+    u32 outBits;
+
+    ret = sceNetConfigGetIfEvent(g_WifiAdapter, &eventAddr, &unk);
+    while (ret != (s32) SCE_NET_ID_CORE_NO_EVENT) {
+        if (ret < 0) {
+            return ret;
+        }
+        if (eventAddr == 8) {
+            if (unpackedArgs->connectionState == 5) {
+                unpackedArgs->unk5 |= 0x10;
+            }
+            return 0;
+        }
+
+        if (eventAddr == 9) {
+            return 0;
+        }
+
+        ret = sceNetConfigGetIfEvent(g_WifiAdapter, &eventAddr, &unk);
+    }
+
+    while (1) {
+        ret = sceKernelWaitEventFlag(unpackedArgs->eventFlags, 0x8, 1, &outBits, 0);
+        if (ret < 0) {
+            return ret;
+        }
+
+        sceKernelClearEventFlag(unpackedArgs->eventFlags, ~0x8);
+
+        ret = sceNetConfigGetIfEvent(g_WifiAdapter, &eventAddr, &unk);
+        while (ret != (s32) SCE_NET_ID_CORE_NO_EVENT) {
+            if (ret < 0) {
+                return ret;
+            }
+            if (eventAddr == 8) {
+                if (unpackedArgs->connectionState == 5) {
+                    unpackedArgs->unk5 |= 0x10;
+                }
+                return 0;
+            }
+            if (eventAddr == 9) {
+                return 0;
+            }
+            ret = sceNetConfigGetIfEvent(g_WifiAdapter, &eventAddr, &unk);
+        }
+        ret = unpackedArgs->eventFlags;
+    }
+}
+
+int FUN_00003d80(struct unk_struct *unpackedArgs, s32 *eventAddr, s32 *unk) {
+    s32 ret = 0;
+    s32 event;
+    s32 tmp;
+
+    while (1) {
+        tmp = sceNetConfigGetIfEvent(g_WifiAdapter, eventAddr, unk);
+
+        if (tmp == (s32) SCE_NET_ID_CORE_NO_EVENT) {
+            break;
+        }
+        if (tmp < 0) {
+            ret = tmp;
+            break;
+        }
+
+        event = *eventAddr;
+        if (event == 4) {
+            if (unpackedArgs->connectionState == 1) {
+                // TODO: What does this mean?
+                unpackedArgs->unk3 = 0x80410B83;
+            }
+            ret = SCE_ERROR_NET_ADHOCCTL_WLAN_SWITCH_DISABLED;
+        } else if (event == 5) {
+            if ((unpackedArgs->unk5 & 0x02) == 0) {
+                ret = SCE_ERROR_NET_ADHOCCTL_BEACON_LOST;
+                unpackedArgs->unk5 |= 0x02;
+            }
+        } else if (event == 7) {
+            if (unpackedArgs->connectionState == 1) {
+                sceNetAdhocAuth_lib_0x2E6AA271();
+                // TODO: What does this mean?
+                unpackedArgs->unk3 = 0X80410B84;
+            }
+            SomethingWithFunctionPointers(5, 0);
+            ret = FUN_00003bc0(unpackedArgs);
+            if ((ret >= 0) && (unpackedArgs->connectionState != 5)) {
+                ret = SCE_ERROR_NET_ADHOCCTL_UNKOWN_ERR1;
+            }
+        }
+    }
+    if (sceKernelPollEventFlag(unpackedArgs->eventFlags, 0x42, SCE_KERNEL_EW_OR, NULL) == 0) {
+        ret = 0;
+    }
+    return ret;
+}
+
+int FUN_00003cf8(struct unk_struct *unpackedArgs) {
+    s32 ret;
+    u32 outBits;
+    s32 eventAddr;
+    s32 unk;
+
+    ret = sceKernelPollEventFlag(unpackedArgs->eventFlags, 0x8, SCE_KERNEL_EW_OR, &outBits);
+
+    if (ret != (s32) SCE_ERROR_KERNEL_EVENT_FLAG_POLL_FAILED) {
+        if (ret >= 0) {
+            if ((outBits & 0x8) != 0) {
+                sceKernelClearEventFlag(unpackedArgs->eventFlags, ~0x8);
+                ret = FUN_00003d80(unpackedArgs, &eventAddr, &unk);
+            }
+        }
+    } else {
+        ret = 0;
+    }
+    return ret;
 }
 
 u32 InitAdhoc(struct unk_struct *unpackedArgs) {
-    int iVar1;
-    s32 tmp;
-    uint uVar3;
-    int i;
-    char unk[33];
-    undefined4 local_d0;
-    undefined4 local_cc;
-    undefined4 local_c8;
-    undefined4 local_c4;
-    undefined4 local_c0;
-    undefined auStack176[128];
+    s32 err = 0;
+    s32 ret;
+    s32 i;
+    char ssid[33];
+    s32 unk[5];
+    char nickname[128];
     u32 channel;
-    undefined4 local_2c[3];
+    s32 unk2[3];
 
     i = 0;
     if (unpackedArgs->connectionState != 0) {
@@ -187,70 +331,86 @@ u32 InitAdhoc(struct unk_struct *unpackedArgs) {
     if (sceWlanGetSwitchState() == 0) {
         return SCE_ERROR_NET_ADHOCCTL_WLAN_SWITCH_DISABLED;
     }
+
+    // Try to attach wlan device
     while (1) {
         // Used for timeout
         i++;
 
-        tmp = sceWlanDevAttach();
-        if (tmp == 0 || ((u32) tmp == SCE_ERROR_NET_WLAN_ALREADY_ATTACHED)) break;
+        ret = sceWlanDevAttach();
+
+        if (ret == 0 || ((u32) ret == SCE_ERROR_NET_WLAN_ALREADY_ATTACHED)) break;
+
         // Return on negative error code or retry if not ready yet
-        if ((tmp >> 0x1f & ((u32) tmp != SCE_ERROR_NET_WLAN_DEVICE_NOT_READY)) != 0) {
-            return tmp;
+        if ((ret >> 0x1f & ((u32) ret != SCE_ERROR_NET_WLAN_DEVICE_NOT_READY)) != 0) {
+            return ret;
         }
+
         if (unpackedArgs->timeout <= i) {
             return SCE_ERROR_NET_ADHOCCTL_TIMEOUT;
         }
 
         sceKernelDelayThread(1000000);
     }
+
     unpackedArgs->unk5 = unpackedArgs->unk5 & 0xc0000001;
     if ((sceNetConfigUpInterface(g_WifiAdapter) >= 0) &&
-        // Event Flag 8, adhoc inited?
-        (sceNetConfigSetIfEventFlag(g_WifiAdapter, unpackedArgs->eventFlags, 0b1000) >= 0)) {
+        (sceNetConfigSetIfEventFlag(g_WifiAdapter, unpackedArgs->eventFlags, 0x8) >=
+         0)) /* Event Flag 8, adapter inited? */ {
 
-        sceKernelMemset(unk, 0, 33);
-        tmp = GetChannelAndSSID(unpackedArgs, unk, &channel);
-        if (-1 < (int) tmp) {
-            i = sceWlanGetSwitchState();
-            if (i == 0) {
-                tmp = 0x80410b03;
+        sceKernelMemset(ssid, 0, (sizeof(ssid)));
+        ret = GetChannelAndSSID(unpackedArgs, ssid, &channel);
+        if (ret >= 0) {
+            if (sceWlanGetSwitchState() == 0) {
+                ret = SCE_ERROR_NET_ADHOCCTL_WLAN_SWITCH_DISABLED;
+                err = 1;
             } else {
-                tmp = sceNet_lib_0xD5B64E37(&DAT_00006534, auStack256, tmp, channel);
-                uVar3 = FUN_00003cf8(param_1);
-                if ((uVar3 << 4) >> 0x14 != 0x41) {
-                    if ((((int) tmp < 0) ||
-                         (tmp = sceUtilityGetSystemParamString(1, auStack176, 0x80), (int) tmp < 0)) ||
-                        (tmp = FUN_00003cf8(param_1), (int) tmp < 0))
-                        goto LAB_00001418;
-                    local_d0 = 1000000;
-                    local_cc = 500000;
-                    local_c8 = 5;
-                    local_c4 = 30000000;
-                    local_c0 = 300000000;
-                    tmp = sceNetAdhocAuth_lib_0x89F2A732(&DAT_00006534, 0x30, 0x2000, &local_d0);
-                    if ((int) tmp < 0) goto LAB_00001418;
-                    param_1->connectionState = 1;
-                    param_1->field_0xc = channel;
-                    uVar3 = tmp;
+                // This function needs to be disassembled
+                ret = sceNet_lib_0xD5B64E37(g_SSIDPrefix, ssid, ret, channel);
+
+                if ((((FUN_00003cf8(unpackedArgs) << 4) >> 0x14) !=
+                     0x41) // Check for SCE_ERROR_FACILITY_NETWORK (bits 27-16)
+                    || (ret < 0)) { // if sceNet_lib_0xD5B64E37 failed
+                    err = 1;
+                } else {
+                    ret = sceUtilityGetSystemParamString(1, nickname, sizeof(nickname));
+                    err = 1;
                 }
-                tmp = uVar3;
-                if (-1 < (int) tmp) {
-                    return tmp;
+
+                if(!err) {
+                    // TODO: What does this mean?
+                    unk[0] = 1000000;
+                    unk[1] = 500000;
+                    unk[2] = 5;
+                    unk[3] = 30000000;
+                    unk[4] = 300000000;
+
+                    ret = sceNetAdhocAuth_lib_0x89F2A732(g_SSIDPrefix, 0x30, 0x2000, unk);
+                    if (ret < 0) {
+                        err = 1;
+                    } else {
+                        unpackedArgs->connectionState = 1;
+                        unpackedArgs->channel = channel;
+                        return ret;
+                    }
                 }
+            }
+
+            if (err) {
+                sceNetAdhocAuth_lib_0x2E6AA271();
+                sceNetConfigSetIfEventFlag(g_SSIDPrefix, 0, 0);
+                unk2[0] = 0;
+                sceNet_lib_0xDA02F383(g_SSIDPrefix, unk2);
+                sceNetConfigDownInterface(g_SSIDPrefix);
+                sceWlanDevDetach();
+                return ret;
             }
         }
     }
-    LAB_00001418:
-    sceNetAdhocAuth_lib_0x2E6AA271();
-    sceNetConfigSetIfEventFlag(&DAT_00006534, 0, 0);
-    local_2c[0] = 0;
-    sceNet_lib_0xDA02F383(&DAT_00006534, local_2c);
-    sceNetConfigDownInterface(&DAT_00006534);
-    sceWlanDevDetach();
-    return tmp;
+    return ret;
 }
 
-s32 GetChannelAndSSID(struct unk_struct *unpackedArgs, char *ssid, int *channel) {
+s32 GetChannelAndSSID(struct unk_struct *unpackedArgs, char *ssid, u32 *channel) {
     s32 adhocChannel;
     s32 ret;
 
@@ -273,11 +433,11 @@ s32 GetChannelAndSSID(struct unk_struct *unpackedArgs, char *ssid, int *channel)
 }
 
 
-s32 BuildSSID(struct unk_struct *unpackedArgs, char* ssid, char adhocSubType, char *ssidSuffix) {
-    struct ProductStruct* product;
+s32 BuildSSID(struct unk_struct *unpackedArgs, char *ssid, char adhocSubType, char *ssidSuffix) {
+    struct ProductStruct *product;
     int i;
     char adhocTypeStr;
-    char* ssidSuffixPtr;
+    char *ssidSuffixPtr;
     int ret;
 
     product = &unpackedArgs->product;
@@ -293,7 +453,7 @@ s32 BuildSSID(struct unk_struct *unpackedArgs, char* ssid, char adhocSubType, ch
     }
 
     // Building SSID String
-    sceKernelMemset(ssid, 0, 0x21);
+    sceKernelMemset(ssid, 0, 33);
 
     sceKernelMemcpy(ssid, g_SSIDPrefix, 3); // PSP
     sceKernelMemcpy(ssid + 3, &g_SSIDSeparator, 1); // _
@@ -318,20 +478,22 @@ s32 BuildSSID(struct unk_struct *unpackedArgs, char* ssid, char adhocSubType, ch
 }
 
 s32 ThreadFunc(SceSize args, void *argp) {
+    // Bypass compiler warning
+    (void)(args);
+
     int iVar1;
     int connectionState;
-    u32 usedInFuncBufThing;
+    //u32 usedInFuncBufThing;
     u32 tmp;
-    u32 event;
-    int ret;
+    u32 outBits;
 
     struct unk_struct *unpackedArgs = (struct unk_struct *) argp;
 
     do {
         while (1) {
-            sceKernelWaitEventFlag(unpackedArgs->eventFlags, 0xfff, 1, &event, 0);
-            if ((event & 0x200) != 0) {
-                sceKernelClearEventFlag(unpackedArgs->eventFlags, 0xfffffdff);
+            sceKernelWaitEventFlag(unpackedArgs->eventFlags, 0xFFF, 1, &outBits, 0);
+            if ((outBits & 0x200) != 0) {
+                sceKernelClearEventFlag(unpackedArgs->eventFlags, ~0x200);
                 if (unpackedArgs->connectionState == 1) {
                     // FUN_000022b8(unpackedArgs);
                 } else {
@@ -341,24 +503,23 @@ s32 ThreadFunc(SceSize args, void *argp) {
                 }
                 return 0;
             }
-            if ((event & 8) == 0) break;
-            sceKernelClearEventFlag(unpackedArgs->eventFlags, 0xfffffff7);
+            if ((outBits & 8) == 0) break;
+            sceKernelClearEventFlag(unpackedArgs->eventFlags, ~0x8);
             connectionState = unpackedArgs->connectionState;
             if ((connectionState == 1 || connectionState == 4) || (connectionState == 5)) {
                 // iVar2 = FUN_00003cd8(unpackedArgs);
                 if (connectionState >= 0) {
                     if (unpackedArgs->connectionState == 4) {
                         // FUN_0000233c(unpackedArgs);
-                        usedInFuncBufThing = 6;
-                        LAB_00003b28:
+                        //usedInFuncBufThing = 6;
                         //FUN_00002600(uVar3, 0);
                         tmp = unpackedArgs->unk5;
                     } else {
                         if (unpackedArgs->connectionState == 5) {
                             // FUN_0000233c(unpackedArgs);
-                            usedInFuncBufThing = 7;
+                            //usedInFuncBufThing = 7;
                             if ((unpackedArgs->unk5 & 0x10) != 0) {
-                                usedInFuncBufThing = 8;
+                                //usedInFuncBufThing = 8;
                                 unpackedArgs->unk5 = unpackedArgs->unk5 & 0xf;
                             }
                             //FUN_00002600(uVar3, 0);
@@ -372,7 +533,7 @@ s32 ThreadFunc(SceSize args, void *argp) {
                 }
                 //FUN_000022b8(unpackedArgs);
             } else {
-                if ((connectionState != 3) || /* (iVar2 = FUN_00003cd8(param_2) && */ connectionState >= 0) {
+                if ((connectionState != 3) /* || (iVar2 = FUN_00003cd8(param_2) && connectionState >= 0 )*/) {
                     break;
                 }
                 //FUN_0000554c(unpackedArgs, g_Unk2);
@@ -381,14 +542,13 @@ s32 ThreadFunc(SceSize args, void *argp) {
             //FUN_00002600(0, actInThread);
             unpackedArgs->unk5 = unpackedArgs->unk5 & 0xe0000000;
         }
-        if ((event & SCE_NET_EVENT_ADHOCCTL_CONNECT) != 0) {
+        if ((outBits & SCE_NET_EVENT_ADHOCCTL_CONNECT) != 0) {
             sceKernelClearEventFlag(unpackedArgs->eventFlags, 0xfffffffe);
             connectionState = InitAdhoc(unpackedArgs);
             if (connectionState >= 0) {
                 //FUN_00002600(1, 0);
                 goto LAB_00003800;
             }
-            LAB_000038a8:
             //iVar1 = FUN_00003cf8(unpackedArgs);
             if (iVar1 < 0) {
                 connectionState = iVar1;
@@ -396,53 +556,53 @@ s32 ThreadFunc(SceSize args, void *argp) {
             goto LAB_000038bc;
         }
         LAB_00003800:
-        if ((event & SCE_NET_EVENT_ADHOCCTL_DISCONNECT) != 0) {
+        if ((outBits & SCE_NET_EVENT_ADHOCCTL_DISCONNECT) != 0) {
             sceKernelClearEventFlag(unpackedArgs->eventFlags, 0xfffffffd);
             //FUN_000022b8(unpackedArgs);
             //FUN_00002600(2, 0);
         }
-        if ((event & 4) != 0) {
+        if ((outBits & 4) != 0) {
             sceKernelClearEventFlag(unpackedArgs->eventFlags, 0xfffffffb);
             //connectionState = FUN_00001534(unpackedArgs);
             //if (connectionState < 0) goto LAB_000038a8;
             //FUN_00002600(3, 0);
         }
-        if ((event & 0x10) != 0) {
+        if ((outBits & 0x10) != 0) {
             sceKernelClearEventFlag(unpackedArgs->eventFlags, 0xffffffef);
             //connectionState = FUN_00003f00(unpackedArgs, g_Unk2);
             //if (connectionState < 0) goto LAB_000038a8;
             //FUN_00002600(4, 0);
         }
-        if ((event & 0x20) != 0) {
+        if ((outBits & 0x20) != 0) {
             sceKernelClearEventFlag(unpackedArgs->eventFlags, 0xffffffdf);
             //connectionState = FUN_000046ac(param_2, 0x7e0);
             //if (connectionState < 0) goto LAB_000038a8;
             //FUN_00002600(4, 0);
         }
-        if ((event & 0x40) != 0) {
+        if ((outBits & 0x40) != 0) {
             sceKernelClearEventFlag(unpackedArgs->eventFlags, 0xffffffbf);
             //FUN_0000554c(param_2, 0x7e0);
             //FUN_00002600(2, 0);
         }
-        if ((event & 0x80) != 0) {
+        if ((outBits & 0x80) != 0) {
             sceKernelClearEventFlag(unpackedArgs->eventFlags, 0xffffff7f);
             //connectionState = FUN_000018a8(param_2);
             //if (connectionState < 0) goto LAB_000038a8;
             //FUN_00002600(1, 0);
         }
-        if ((event & 0x100) != 0) {
+        if ((outBits & 0x100) != 0) {
             sceKernelClearEventFlag(unpackedArgs->eventFlags, 0xfffffeff);
             //connectionState = FUN_00001b9c(param_2);
             //if (connectionState < 0) goto LAB_000038a8;
             //FUN_00002600(1, 0);
         }
-        if ((event & 0x400) != 0) {
+        if ((outBits & 0x400) != 0) {
             sceKernelClearEventFlag(unpackedArgs->eventFlags, 0xfffffbff);
             //connectionState = FUN_00001ec8(param_2);
             //if (connectionState < 0) goto LAB_000038a8;
             //FUN_00002d40(5, 1);
         }
-        if ((event & 0x800) == 0) {
+        if ((outBits & 0x800) == 0) {
             tmp = g_Unk.connectionState;
         } else {
             sceKernelClearEventFlag(unpackedArgs->eventFlags, 0xfffff7ff);
@@ -451,14 +611,14 @@ s32 ThreadFunc(SceSize args, void *argp) {
             //FUN_00002d40(5, 1);
             tmp = g_Unk.connectionState;
         }
-        g_Unk.connectionState = (s32) (tmp & 0xe0000000);
+        g_Unk.connectionState = (s32)(tmp & 0xe0000000);
     } while (1);
 }
 
 s32 CreateLwMutex() {
     s32 ret;
 
-    ret = sceKernelCreateLwMutex(g_WorkAreaPtr, "SceNetAdhocctl", 512, 0, 0);
+    ret = sceKernelCreateLwMutex(g_Mutex, "SceNetAdhocctl", 512, 0, 0);
     if (ret >= 0) {
         g_MutexInited = 1;
         ret = 0;

@@ -14,5 +14,6 @@
 #define SYSTEMPARAM_INT_ADHOC_CHANNEL 2
 
 s32 sceUtilityGetSystemParamInt(s32 id, s32 *value);
+s32 sceUtilityGetSystemParamString(s32 id, char *value, u32 size);
 
-#endif UTILITY_SYSPARAM_H
+#endif // UTILITY_SYSPARAM_H

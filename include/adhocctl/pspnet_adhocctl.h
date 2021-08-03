@@ -34,8 +34,8 @@ struct unk_struct {
     s32 unk; // 0xC
     s32 unk2; // 0x10 (buffer size? gets filled with 0x780 (1920))
     s32 timeout; // 0x14
-    s32 unk3; // 0x18, could contain 0x80410b83
-    s32 unk4; // 0x1C
+    u32 unk3; // 0x18, could contain 0x80410b83
+    u32 channel; // 0x1C
     u32 unk5; // 0x20, bitfield (& 0x2, 0x10 checked, 0xf, 0xc0000001; written)
     char ssidSuffix[8]; // 0x24
     char unk7[1920]; // 0x2c (buffer?)

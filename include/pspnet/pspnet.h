@@ -14,7 +14,16 @@
  *
  * @return The length of the string.
  */
-u32 sceNetStrlen(const char* str);
+u32 sceNetStrlen(const char *str);
+
+/**
+ * Brings an interface down.
+ *
+ * @param name Name of the interface.
+ *
+ * @return 0 if successful.
+ */
+s32 sceNetConfigDownInterface(const char* name);
 
 /**
  * Brings an interface up.
@@ -23,7 +32,18 @@ u32 sceNetStrlen(const char* str);
  *
  * @return 0 if successful.
  */
-s32 sceNetConfigUpInterface(const char* name);
+s32 sceNetConfigUpInterface(const char *name);
+
+/**
+ * Gets an event to use?
+ *
+ * @param name Name of the interface.
+ * @param eventAddr the event address gets saved here?
+ * @param unk
+ *
+ * @return The event?
+ */
+s32 sceNetConfigGetIfEvent(const char *name, s32* eventAddr, s32* unk);
 
 /**
  * Sets the event flag bitmask of a device.
@@ -34,6 +54,28 @@ s32 sceNetConfigUpInterface(const char* name);
  *
  * @return 0 if successful.
  */
-s32 sceNetConfigSetIfEventFlag(const char* name, SceUID eventFlags, u32 bitMask);
+s32 sceNetConfigSetIfEventFlag(const char *name, SceUID eventFlags, u32 bitMask);
+
+/**
+ * Unknown function.
+ *
+ * @param name Name of the interface.
+ * @param ssid SSID of the adhoc network to be formed.
+ * @param ssidLen Length of the ssid.
+ * @param channel Channel to be used.
+ *
+ * return something <0 on failure.
+ */
+s32 sceNet_lib_0xD5B64E37(const char *name, const char *ssid, u32 ssidLen, u32 channel);
+
+/**
+ * Unknown function.
+ *
+ * @param name Name of the interface.
+ * @param unk
+ *
+ * return something <0 on failure.
+ */
+s32 sceNet_lib_0xDA02F383(const char* name, s32* unk);
 
 #endif /* PSPNET_H */
