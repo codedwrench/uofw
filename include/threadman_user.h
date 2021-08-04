@@ -22,6 +22,7 @@ typedef struct {
 } SceLwMutex;
 
 int sceKernelCreateLwMutex(SceLwMutex *mutex, const char* name, u32 attr, s32 initcnt, s32* optparam);
+s32 sceKernelDeleteLwMutex(SceLwMutex *mutex);
 
 s32 _sceKernelLockLwMutexCB(SceLwMutex *mutex, s32 count);
 s32 _sceKernelLockLwMutex(SceLwMutex *mutex, s32 count);

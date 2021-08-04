@@ -60,6 +60,7 @@ int sceKernelStartThread(SceUID thid, SceSize arglen, void *argp);
 int sceKernelSuspendThread(SceUID thid);
 int sceKernelExitThread(s32 status);
 s32 sceKernelExitDeleteThread(s32 exitStatus);
+int sceKernelTerminateThread(SceUID thid);
 int sceKernelTerminateDeleteThread(SceUID thid);
 int sceKernelDelayThread(SceUInt delay);
 int sceKernelChangeThreadPriority(SceUID thid, int priority);

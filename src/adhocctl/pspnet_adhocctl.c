@@ -32,26 +32,25 @@ struct unk_struct g_Unk; // 0x8
 
 struct unk_struct2 g_Unk2; // 0x7E0
 
-typedef void(*unk_struct3_func)(s32 unk, s32 unk2, s32 unk3);
+typedef void(*sceNetAdhocctlHandler)(s32 flag, s32 err, void *unk);
 
-struct unk_struct3 {
-    s32 unk;
-    unk_struct3_func func;
-    s32 func_argument;
-    s32 unk2;
+struct AdhocHandler {
+    s32 handlerIdx;                 // 0x0
+    sceNetAdhocctlHandler handler;  // 0x4
+    void *handlerArg;               // 0x8
+    s32  funcGlobalArea;            // 0xc $gp gets set to here?
 };
 
-// TODO: What's in 0x8A2 - 0x8A8 ?
 // Vars at: [((fptr) 0x4), (0xC)] * (i * 0x10)
-struct unk_struct3 *g_Unk4[4]; // 0x8A8
+struct AdhocHandler *g_Unk4[4]; // 0x8A0
 
-struct unk_struct3 *g_Unk5[4]; // 0x8E0
+struct AdhocHandler *g_Unk5[4]; // 0x8E0
 
 // TODO: What's in 0x920 - 0x944
 s32 g_Unk6; // 0x944
 
 s32 g_MutexInited; // 0x1948
-SceLwMutex *g_Mutex; // 0x194C
+SceLwMutex g_Mutex; // 0x194C
 
 const char g_WifiAdapter[] = "wifi";
 const char g_DefSSIDPrefix[] = "PSP";
@@ -60,13 +59,14 @@ const char g_SSIDPrefixRegKey[] = "ssid_prefix";
 const char g_SSIDSeparator = '_'; // 0x653c
 
 SCE_MODULE_INFO(
-"sceNetAdhocctl_Library",
-SCE_MODULE_ATTR_EXCLUSIVE_LOAD | SCE_MODULE_ATTR_EXCLUSIVE_START,
-1, 6);
+        "sceNetAdhocctl_Library",
+        SCE_MODULE_ATTR_EXCLUSIVE_LOAD | SCE_MODULE_ATTR_EXCLUSIVE_START,
+        1, 6);
 
 SCE_SDK_VERSION(SDK_VERSION);
 
 s32 CreateLwMutex();
+void DeleteLwMutex();
 
 s32 GetChannelAndSSID(struct unk_struct *unpackedArgs, char *ssid, u32 *channel);
 
@@ -161,33 +161,76 @@ s32 StartAuthAndThread(s32 stackSize, s32 priority, struct ProductStruct *produc
             ret = sceKernelCreateEventFlag("SceNetAdhocctl", 0, 0, 0);
             if (ret >= 0) {
                 g_Unk.eventFlags = ret;
-                g_Unk.kernelFlags = sceKernelCreateThread("SceNetAdhocctl", ThreadFunc, priority, stackSize, 0, 0);
+                g_Unk.tid = sceKernelCreateThread("SceNetAdhocctl", ThreadFunc, priority, stackSize, 0, 0);
+                if(g_Unk.tid >= 0) {
+                    ret = sceKernelStartThread(g_Unk.tid, 4, &g_Unk);
+                    if (ret >= 0) {
+                        g_Unk.stackSpace = stackSize - 3072;
+                        g_Unk.timeout = 5;
+                        return ret;
+                    }
+                    sceKernelTerminateThread(g_Unk.tid);
+                    sceKernelDeleteThread(g_Unk.tid);
+                }
+                sceKernelDeleteEventFlag(g_Unk.eventFlags);
             }
         }
+        DeleteLwMutex();
     }
     sceNetAdhocAuthTerm();
 
     return ret;
 }
 
-s32 SomethingWithFunctionPointers(s32 unk, s32 unk2) {
-    s32 lockRes;
+s32 RunAdhocctlHandlers(s32 flag, s32 err) {
+    u32 i = (sizeof(g_Unk4) / (sizeof(struct AdhocHandler)));
+    s32 lockRes = sceKernelLockLwMutex(&g_Mutex, 1);;
+    s32 oldGp;
+    s32 oldSp;
+    s32 stackSpace;
+    struct AdhocHandler *handlerStruct = g_Unk4[0];
 
-    struct unk_struct3 *funcPtr = g_Unk5[0];
-    u32 i = 4;
+    while (i > 0) {
+        if (handlerStruct->handler != NULL) {
+            // Sets the global pointer to the new spot
+            oldGp = pspSetGp(handlerStruct->funcGlobalArea);
 
-    lockRes = sceKernelLockLwMutex(g_Mutex, 1);
+            stackSpace = sceKernelCheckThreadStack() - g_Unk.stackSpace;
+            if (stackSpace < 1) {
+                handlerStruct->handler(flag, err, handlerStruct->handlerArg);
+            } else {
+                stackSpace += 0xF;
+                stackSpace = stackSpace & (s32) 0xFFFFFFF0; // remove last nibble
+                oldSp = pspGetSp();
+                pspSetSp(oldSp - stackSpace); // increase stack space
 
-    while (i > (sizeof(g_Unk5))) {
-        if (funcPtr->func != NULL) {
-            funcPtr->func(unk, unk2, funcPtr->func_argument);
+                handlerStruct->handler(flag, err, handlerStruct->handlerArg);
+
+                pspSetSp(oldSp); // Return to old stackpointer
+            }
+           pspSetGp(oldGp);
         }
         i--;
-        funcPtr++;
+        handlerStruct++;
     }
 
-    if (lockRes == 0) {
-        sceKernelUnlockLwMutex(g_Mutex, 1);
+    handlerStruct = g_Unk5[0];
+    i = (sizeof(g_Unk5) / (sizeof(struct AdhocHandler)));
+
+    // Seems that there is no stack size magic involved here
+    while (i > 0) {
+        if (handlerStruct->handler != NULL) {
+            // Sets the global pointer to the new spot
+            oldGp = pspSetGp(handlerStruct->funcGlobalArea);
+            handlerStruct->handler(flag, err, handlerStruct->handlerArg);
+            pspSetGp(oldGp);
+        }
+        i--;
+        handlerStruct++;
+    }
+
+    if (!lockRes) {
+        sceKernelUnlockLwMutex(&g_Mutex, 1);
     }
     return 0;
 }
@@ -279,7 +322,7 @@ int FUN_00003d80(struct unk_struct *unpackedArgs, s32 *eventAddr, s32 *unk) {
                 // TODO: What does this mean?
                 unpackedArgs->unk3 = 0X80410B84;
             }
-            SomethingWithFunctionPointers(5, 0);
+            RunAdhocctlHandlers(5, 0);
             ret = FUN_00003bc0(unpackedArgs);
             if ((ret >= 0) && (unpackedArgs->connectionState != 5)) {
                 ret = SCE_ERROR_NET_ADHOCCTL_UNKOWN_ERR1;
@@ -313,7 +356,7 @@ int FUN_00003cf8(struct unk_struct *unpackedArgs) {
     return ret;
 }
 
-u32 InitAdhoc(struct unk_struct *unpackedArgs) {
+s32 InitAdhoc(struct unk_struct *unpackedArgs) {
     s32 err = 0;
     s32 ret;
     s32 i;
@@ -374,12 +417,12 @@ u32 InitAdhoc(struct unk_struct *unpackedArgs) {
                     err = 1;
                 } else {
                     ret = sceUtilityGetSystemParamString(1, nickname, sizeof(nickname));
-                    if(ret < 0) {
+                    if (ret < 0) {
                         err = 1;
                     }
                 }
 
-                if(!err) {
+                if (!err) {
                     // Used as first arg in sceKernelSetAlarm in several places
                     // As clock	- The number of micro seconds till the alarm occurs.
                     clocks[0] = 1000000;
@@ -484,10 +527,10 @@ s32 BuildSSID(struct unk_struct *unpackedArgs, char *ssid, char adhocSubType, ch
 
 s32 ThreadFunc(SceSize args, void *argp) {
     // Bypass compiler warning
-    (void)(args);
+    (void) (args);
 
     int iVar1;
-    int connectionState;
+    s32 connectionState;
     //u32 usedInFuncBufThing;
     u32 tmp;
     u32 outBits;
@@ -551,7 +594,7 @@ s32 ThreadFunc(SceSize args, void *argp) {
             sceKernelClearEventFlag(unpackedArgs->eventFlags, 0xfffffffe);
             connectionState = InitAdhoc(unpackedArgs);
             if (connectionState >= 0) {
-                //FUN_00002600(1, 0);
+                RunAdhocctlHandlers(1, 0);
                 goto LAB_00003800;
             }
             //iVar1 = FUN_00003cf8(unpackedArgs);
@@ -616,19 +659,27 @@ s32 ThreadFunc(SceSize args, void *argp) {
             //FUN_00002d40(5, 1);
             tmp = g_Unk.connectionState;
         }
-        g_Unk.connectionState = (s32)(tmp & 0xe0000000);
+        g_Unk.connectionState = (s32) (tmp & 0xe0000000);
     } while (1);
 }
 
 s32 CreateLwMutex() {
     s32 ret;
 
-    ret = sceKernelCreateLwMutex(g_Mutex, "SceNetAdhocctl", 512, 0, 0);
+    ret = sceKernelCreateLwMutex(&g_Mutex, "SceNetAdhocctl", 512, 0, 0);
     if (ret >= 0) {
         g_MutexInited = 1;
         ret = 0;
     }
     return ret;
+}
+
+void DeleteLwMutex()
+{
+    if (g_MutexInited) {
+        sceKernelDeleteLwMutex(&g_Mutex);
+    }
+    g_MutexInited = 0;
 }
 
 s32 GetSSIDPrefix(char *ssidPrefix) {
