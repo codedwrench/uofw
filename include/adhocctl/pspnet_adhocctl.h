@@ -10,8 +10,10 @@ extern const char g_DefSSIDPrefix[];
 extern const char g_AdhocRegString[];
 extern const char g_SSIDPrefixRegKey[];
 
-#define SCE_NET_EVENT_ADHOCCTL_CONNECT       1
-#define SCE_NET_EVENT_ADHOCCTL_DISCONNECT    2
+#define SCE_NET_ADHOCCTL_EVENT_ERROR         0
+#define SCE_NET_ADHOCCTL_EVENT_CONNECT       1
+#define SCE_NET_ADHOCCTL_EVENT_DISCONNECT    2
+#define SCE_NET_ADHOCCTL_EVENT_SCAN          3
 
 #define ADHOC_SUBTYPE_NORMALMODE 'L'
 #define ADHOC_SUBTYPE_GAMEMODE   'G'

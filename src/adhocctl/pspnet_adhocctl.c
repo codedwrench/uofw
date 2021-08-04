@@ -183,7 +183,7 @@ s32 StartAuthAndThread(s32 stackSize, s32 priority, struct ProductStruct *produc
 }
 
 s32 RunAdhocctlHandlers(s32 flag, s32 err) {
-    u32 i = (sizeof(g_Unk4) / (sizeof(struct AdhocHandler)));
+    u32 i = 4;
     s32 lockRes = sceKernelLockLwMutex(&g_Mutex, 1);;
     s32 oldGp;
     s32 oldSp;
@@ -215,7 +215,7 @@ s32 RunAdhocctlHandlers(s32 flag, s32 err) {
     }
 
     handlerStruct = g_Unk5[0];
-    i = (sizeof(g_Unk5) / (sizeof(struct AdhocHandler)));
+    i = 4;
 
     // Seems that there is no stack size magic involved here
     while (i > 0) {
@@ -288,7 +288,7 @@ s32 FUN_00003bc0(struct unk_struct *unpackedArgs) {
     }
 }
 
-int FUN_00003d80(struct unk_struct *unpackedArgs, s32 *eventAddr, s32 *unk) {
+int StartConnection(struct unk_struct *unpackedArgs, s32 *eventAddr, s32 *unk) {
     s32 ret = 0;
     s32 event;
     s32 tmp;
@@ -335,7 +335,7 @@ int FUN_00003d80(struct unk_struct *unpackedArgs, s32 *eventAddr, s32 *unk) {
     return ret;
 }
 
-int FUN_00003cf8(struct unk_struct *unpackedArgs) {
+int WaitEvent8AndConnect(struct unk_struct *unpackedArgs) {
     s32 ret;
     u32 outBits;
     s32 eventAddr;
@@ -347,7 +347,7 @@ int FUN_00003cf8(struct unk_struct *unpackedArgs) {
         if (ret >= 0) {
             if ((outBits & 0x8) != 0) {
                 sceKernelClearEventFlag(unpackedArgs->eventFlags, ~0x8);
-                ret = FUN_00003d80(unpackedArgs, &eventAddr, &unk);
+                ret = StartConnection(unpackedArgs, &eventAddr, &unk);
             }
         }
     } else {
@@ -364,7 +364,7 @@ s32 InitAdhoc(struct unk_struct *unpackedArgs) {
     s32 clocks[5];
     char nickname[128];
     u32 channel;
-    s32 unk2[3];
+    s32 unk2;
 
     i = 0;
     if (unpackedArgs->connectionState != 0) {
@@ -411,7 +411,7 @@ s32 InitAdhoc(struct unk_struct *unpackedArgs) {
                 // This function needs to be disassembled
                 ret = sceNet_lib_0xD5B64E37(g_SSIDPrefix, ssid, ret, channel);
 
-                if ((((FUN_00003cf8(unpackedArgs) << 4) >> 0x14) !=
+                if ((((WaitEvent8AndConnect(unpackedArgs) << 4) >> 0x14) !=
                      0x41) // Check for SCE_ERROR_FACILITY_NETWORK (bits 27-16)
                     || (ret < 0)) { // if sceNet_lib_0xD5B64E37 failed
                     err = 1;
@@ -447,8 +447,8 @@ s32 InitAdhoc(struct unk_struct *unpackedArgs) {
             if (err) {
                 sceNetAdhocAuth_lib_0x2E6AA271();
                 sceNetConfigSetIfEventFlag(g_SSIDPrefix, 0, 0);
-                unk2[0] = 0;
-                sceNet_lib_0xDA02F383(g_SSIDPrefix, unk2);
+                unk2 = 0;
+                sceNet_lib_0xDA02F383(g_SSIDPrefix, &unk2);
                 sceNetConfigDownInterface(g_SSIDPrefix);
                 sceWlanDevDetach();
                 return ret;
@@ -525,14 +525,29 @@ s32 BuildSSID(struct unk_struct *unpackedArgs, char *ssid, char adhocSubType, ch
     return ret;
 }
 
+void Disconnect(struct unk_struct *unpackedArgs)
+{
+    s32 unk;
+
+    sceNetAdhocAuth_lib_0x2E6AA271();
+    sceWlanSetHostDiscover(0,0);
+    sceWlanSetWakeUp(0,0);
+    sceNetConfigSetIfEventFlag(g_WifiAdapter,0,0);
+    unk = 0;
+    sceNet_lib_0xDA02F383(g_WifiAdapter, &unk);
+    sceNetConfigDownInterface(g_WifiAdapter);
+    sceWlanDevDetach();
+    unpackedArgs->connectionState = 0;
+    unpackedArgs->unk3 = 0;
+}
+
 s32 ThreadFunc(SceSize args, void *argp) {
     // Bypass compiler warning
     (void) (args);
 
-    int iVar1;
     s32 connectionState;
     //u32 usedInFuncBufThing;
-    u32 tmp;
+    s32 tmp;
     u32 outBits;
 
     struct unk_struct *unpackedArgs = (struct unk_struct *) argp;
@@ -586,34 +601,36 @@ s32 ThreadFunc(SceSize args, void *argp) {
                 }
                 //FUN_0000554c(unpackedArgs, g_Unk2);
             }
-            LAB_000038bc:
-            //FUN_00002600(0, actInThread);
+            RunAdhocctlHandlers(0, /*actInThread*/ 0);
             unpackedArgs->unk5 = unpackedArgs->unk5 & 0xe0000000;
         }
-        if ((outBits & SCE_NET_EVENT_ADHOCCTL_CONNECT) != 0) {
-            sceKernelClearEventFlag(unpackedArgs->eventFlags, 0xfffffffe);
+
+        if ((outBits & SCE_NET_ADHOCCTL_EVENT_CONNECT) != 0) {
+            sceKernelClearEventFlag(unpackedArgs->eventFlags, ~SCE_NET_ADHOCCTL_EVENT_CONNECT);
             connectionState = InitAdhoc(unpackedArgs);
             if (connectionState >= 0) {
-                RunAdhocctlHandlers(1, 0);
-                goto LAB_00003800;
+                RunAdhocctlHandlers(SCE_NET_ADHOCCTL_EVENT_CONNECT, 0);
+            } else {
+                tmp = WaitEvent8AndConnect(unpackedArgs);
+                if (tmp < 0) {
+                    connectionState = tmp;
+                }
+                RunAdhocctlHandlers(0, /*actInThread*/ 0);
+                unpackedArgs->unk5 = unpackedArgs->unk5 & 0xe0000000;
             }
-            //iVar1 = FUN_00003cf8(unpackedArgs);
-            if (iVar1 < 0) {
-                connectionState = iVar1;
-            }
-            goto LAB_000038bc;
         }
-        LAB_00003800:
-        if ((outBits & SCE_NET_EVENT_ADHOCCTL_DISCONNECT) != 0) {
-            sceKernelClearEventFlag(unpackedArgs->eventFlags, 0xfffffffd);
-            //FUN_000022b8(unpackedArgs);
-            //FUN_00002600(2, 0);
+
+        if ((outBits & SCE_NET_ADHOCCTL_EVENT_DISCONNECT) != 0) {
+            sceKernelClearEventFlag(unpackedArgs->eventFlags, ~SCE_NET_ADHOCCTL_EVENT_DISCONNECT);
+            Disconnect(unpackedArgs);
+            RunAdhocctlHandlers(SCE_NET_ADHOCCTL_EVENT_DISCONNECT, 0);
         }
-        if ((outBits & 4) != 0) {
-            sceKernelClearEventFlag(unpackedArgs->eventFlags, 0xfffffffb);
+
+        if ((outBits & SCE_NET_ADHOCCTL_EVENT_SCAN) != 0) {
+            sceKernelClearEventFlag(unpackedArgs->eventFlags, ~SCE_NET_ADHOCCTL_EVENT_SCAN);
             //connectionState = FUN_00001534(unpackedArgs);
             //if (connectionState < 0) goto LAB_000038a8;
-            //FUN_00002600(3, 0);
+            RunAdhocctlHandlers(SCE_NET_ADHOCCTL_EVENT_SCAN, 0);
         }
         if ((outBits & 0x10) != 0) {
             sceKernelClearEventFlag(unpackedArgs->eventFlags, 0xffffffef);
