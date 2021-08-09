@@ -10,10 +10,12 @@ extern const char g_DefSSIDPrefix[];
 extern const char g_AdhocRegString[];
 extern const char g_SSIDPrefixRegKey[];
 
-#define SCE_NET_ADHOCCTL_EVENT_ERROR         0
-#define SCE_NET_ADHOCCTL_EVENT_CONNECT       1
-#define SCE_NET_ADHOCCTL_EVENT_DISCONNECT    2
-#define SCE_NET_ADHOCCTL_EVENT_SCAN          3
+#define SCE_NET_ADHOCCTL_EVENT_ERROR         0x0
+#define SCE_NET_ADHOCCTL_EVENT_CONNECT       0x1
+#define SCE_NET_ADHOCCTL_EVENT_DISCONNECT    0x2
+#define SCE_NET_ADHOCCTL_EVENT_SCAN          0x3
+// TODO: Is this truly what this means?
+#define SCE_NET_ADHOCCTL_DEVICE_UP           0x8
 
 #define ADHOC_SUBTYPE_NORMALMODE 'L'
 #define ADHOC_SUBTYPE_GAMEMODE   'G'
