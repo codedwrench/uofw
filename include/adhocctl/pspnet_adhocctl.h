@@ -60,14 +60,14 @@ struct unk_struct2 {
 };
 
 struct unk_struct3 {
-    s32 unk;
-    char unk2[6];
-    char channels[14];
-    char unk3[36];
-    s32 unk4;
-    s32 unk5;
-    s32 unk6;
-    s32 unk7;
+    s32 unk;           // 0x0
+    char unk2[6];      // 0x4  BSSID?
+    char channels[14]; // 0xa
+    char unk3[36];     // 0x18 SSID + SSID length?
+    s32 unk4;          // 0x3c
+    s32 unk5;          // 0x40
+    s32 min_strength;  // 0x44
+    s32 max_strength;  // 0x48
 };
 
 typedef void(*sceNetAdhocctlHandler)(s32 flag, s32 err, void *unk);

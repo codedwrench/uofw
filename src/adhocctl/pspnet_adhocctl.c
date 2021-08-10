@@ -532,7 +532,7 @@ void Disconnect(struct unk_struct *unpackedArgs) {
     unpackedArgs->unk3 = 0;
 }
 
-s32 FUN_00001534(struct unk_struct *unpackedArgs) {
+s32 ScanAndConnect(struct unk_struct *unpackedArgs) {
     u32 err = 0;
     s32 lockRes = 1;
     s32 tmp;
@@ -544,8 +544,8 @@ s32 FUN_00001534(struct unk_struct *unpackedArgs) {
     // 0x76 (0xb) <char[14]>
     // 0x44 (0x1)
     // 0x40 (0x0)
-    // 0x3c (0x6)
-    // 0x38 (0x64) beacon interval?
+    // 0x3c (0x1)
+    // 0x38 (0x64)
     // -----------
     // 0x34
     // 0x30 // Channel ?
@@ -624,14 +624,12 @@ s32 FUN_00001534(struct unk_struct *unpackedArgs) {
                                     unk.channels[2] = 1;
                                 }
 
-                                // TODO : BOOKMARK
-
                                 unpackedArgs->unk2 = 1920;
 
                                 unk.unk4 = 1;
                                 unk.unk5 = 0;
-                                unk.unk6 = 6;
-                                unk.unk7 = 0x64;
+                                unk.min_strength = 6;
+                                unk.max_strength = 100;
 
                                 // TODO: If this needs to be added, does that mean the struct is bigger than 76 bytes?
                                 // local_2c = 0;
@@ -747,7 +745,7 @@ s32 ThreadFunc(SceSize args, void *argp) {
 
         if ((outBits & SCE_NET_ADHOCCTL_EVENT_SCAN) != 0) {
             sceKernelClearEventFlag(unpackedArgs->eventFlags, ~SCE_NET_ADHOCCTL_EVENT_SCAN);
-            connectionState = FUN_00001534(unpackedArgs);
+            connectionState = ScanAndConnect(unpackedArgs);
             //if (connectionState < 0) goto LAB_000038a8;
             RunAdhocctlHandlers(SCE_NET_ADHOCCTL_EVENT_SCAN, 0);
         }
