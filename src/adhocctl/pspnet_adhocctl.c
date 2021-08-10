@@ -32,15 +32,6 @@ struct unk_struct g_Unk; // 0x8
 
 struct unk_struct2 g_Unk2; // 0x7E0
 
-typedef void(*sceNetAdhocctlHandler)(s32 flag, s32 err, void *unk);
-
-struct AdhocHandler {
-    s32 handlerIdx;                 // 0x0
-    sceNetAdhocctlHandler handler;  // 0x4
-    void *handlerArg;               // 0x8
-    s32 funcGlobalArea;            // 0xc $gp gets set to here?
-};
-
 // Vars at: [((fptr) 0x4), (0xC)] * (i * 0x10)
 struct AdhocHandler *g_Unk4[4]; // 0x8A0
 
@@ -413,7 +404,7 @@ s32 InitAdhoc(struct unk_struct *unpackedArgs) {
                 ret = sceNet_lib_0xD5B64E37(g_SSIDPrefix, ssid, ret, channel);
 
                 if ((((WaitEventDeviceUpAndConnect(unpackedArgs) << 4) >> 0x14) !=
-                     0x41) // Check for SCE_ERROR_FACILITY_NETWORK (bits 27-16)
+                    SCE_ERROR_FACILITY_NETWORK)
                     || (ret < 0)) { // if sceNet_lib_0xD5B64E37 failed
                     err = 1;
                 } else {
@@ -548,17 +539,18 @@ s32 FUN_00001534(struct unk_struct *unpackedArgs) {
     s32 ret;
     s32 i;
 
-    // I think this catches a beacon frame
     // Stack:
-    char unk[76]; // 0x80 (0x2)
-                  // 0x76 (0xb) <char[14]>
-                  // 0x44 (0x1)
-                  // 0x3c (0x6)
-                  // 0x40 (0x0)
-                  // 0x38 (0x64) beacon interval?
-                  // 0x2c (0x0)
-
-    int iVar5;
+    // 0x80 (0x2)
+    // 0x76 (0xb) <char[14]>
+    // 0x44 (0x1)
+    // 0x40 (0x0)
+    // 0x3c (0x6)
+    // 0x38 (0x64) beacon interval?
+    // -----------
+    // 0x34
+    // 0x30 // Channel ?
+    // 0x2c (0)
+    struct unk_struct3 unk;
     char channel;
 
     i = 0;
@@ -600,10 +592,10 @@ s32 FUN_00001534(struct unk_struct *unpackedArgs) {
                         ret = SCE_ERROR_NET_ADHOCCTL_WLAN_SWITCH_DISABLED;
                         if (sceWlanGetSwitchState() != 0) {
                             lockRes = sceKernelLockLwMutex(&g_Mutex, 1);;
-                            sceKernelMemset(unk, 0, (sizeof(unk)));
+                            sceKernelMemset(&unk, 0, (sizeof(unk)));
                             sceKernelMemset(unpackedArgs->unk7, 0, (sizeof(unpackedArgs->unk7)));
 
-                            unk[0] = 2;
+                            unk.unk = 2;
 
                             ret = sceUtilityGetSystemParamInt(SYSTEMPARAM_INT_ADHOC_CHANNEL, &tmp);
                             if (ret >= 0) {
@@ -616,35 +608,38 @@ s32 FUN_00001534(struct unk_struct *unpackedArgs) {
                                     channel = 0;
                                 }
 
+                                // TODO: memset done before, why is this needed?
                                 // Clear 14 spots
                                 while (i < 14) {
-                                    unk[4 + i] = 0;
+                                    unk.channels[i] = 0;
                                     i++;
+                                }
+
+                                // Selects which channels to scan on
+                                if (channel != 0) {
+                                    unk.channels[0] = channel;
+                                } else {
+                                    unk.channels[0] = 11;
+                                    unk.channels[1] = 6;
+                                    unk.channels[2] = 1;
                                 }
 
                                 // TODO : BOOKMARK
 
-                                // Selects which channels to scan on
-                                if (channel != 0) {
-                                    unk[4] = channel;
-                                } else {
-                                    unk[4] = 11;
-                                    unk[5] = 6;
-                                    unk[6] = 1;
-                                }
-
                                 unpackedArgs->unk2 = 1920;
 
-                                local_44 = 1;
-                                local_3c = 6;
-                                local_38 = 0x64;
-                                local_40 = 0;
-                                local_2c = 0;
-                                ret = sceNet_lib_0x7BA3ED91
-                                        (&DAT_00006534, local_80, unpackedArgs->unk2, unpackedArgs->unk7);
-                                uVar2 = FUN_00003cf8(param_1);
-                                if ((uVar2 << 4) >> 0x14 == 0x41) {
-                                    ret = uVar2;
+                                unk.unk4 = 1;
+                                unk.unk5 = 0;
+                                unk.unk6 = 6;
+                                unk.unk7 = 0x64;
+
+                                // TODO: If this needs to be added, does that mean the struct is bigger than 76 bytes?
+                                // local_2c = 0;
+
+                                ret = sceNet_lib_0x7BA3ED91(g_WifiAdapter, &unk, unpackedArgs->unk2, unpackedArgs->unk7);
+                                tmp = WaitEventDeviceUpAndConnect(unpackedArgs);
+                                if ((tmp << 4) >> 0x14 == SCE_ERROR_FACILITY_NETWORK) {
+                                    ret = tmp;
                                 }
                             }
                         }

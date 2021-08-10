@@ -57,6 +57,16 @@ s32 sceNetConfigGetIfEvent(const char *name, s32* eventAddr, s32* unk);
 s32 sceNetConfigSetIfEventFlag(const char *name, SceUID eventFlags, u32 bitMask);
 
 /**
+ * Seems to have something to do with wifi scanning.
+ * @param name Name of the interface.
+ * @param unk Unknown.
+ * @param unk2 Unknown, seems to be buffer length.
+ * @param unk3 Unknown, seems to be buffer.
+ * @return
+ */
+s32 sceNet_lib_0x7BA3ED91(const char *name, void *unk, s32 unk2, char *unk3);
+
+/**
  * Unknown function.
  *
  * @param name Name of the interface.

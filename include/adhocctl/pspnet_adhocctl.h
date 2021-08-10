@@ -59,6 +59,26 @@ struct unk_struct2 {
     s32 unk9;          // 0xbc
 };
 
+struct unk_struct3 {
+    s32 unk;
+    char unk2[6];
+    char channels[14];
+    char unk3[36];
+    s32 unk4;
+    s32 unk5;
+    s32 unk6;
+    s32 unk7;
+};
+
+typedef void(*sceNetAdhocctlHandler)(s32 flag, s32 err, void *unk);
+
+struct AdhocHandler {
+    s32 handlerIdx;                 // 0x0
+    sceNetAdhocctlHandler handler;  // 0x4
+    void *handlerArg;               // 0x8
+    s32 funcGlobalArea;             // 0xc $gp gets set to here?
+};
+
 /**
  * Inits the adhocctl module.
  * @param stackSize The stacksize adhocctl can use.
