@@ -62,9 +62,10 @@ s32 sceNetConfigSetIfEventFlag(const char *name, SceUID eventFlags, u32 bitMask)
  * @param unk Unknown.
  * @param unk2 Unknown, seems to be buffer length.
  * @param unk3 Unknown, seems to be buffer.
+ * @param unk4 Unknown, seems to be set to 0.
  * @return
  */
-s32 sceNet_lib_0x7BA3ED91(const char *name, void *unk, s32 unk2, char *unk3);
+s32 sceNet_lib_0x7BA3ED91(const char *name, void *unk, s32 unk2, char *unk3, u32* unk4);
 
 /**
  * Unknown function.

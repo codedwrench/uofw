@@ -546,11 +546,8 @@ s32 ScanAndConnect(struct unk_struct *unpackedArgs) {
     // 0x40 (0x0)
     // 0x3c (0x1)
     // 0x38 (0x64)
-    // -----------
-    // 0x34
-    // 0x30 // Channel ?
-    // 0x2c (0)
     struct unk_struct3 unk;
+    u32 unk2;
     char channel;
 
     i = 0;
@@ -631,10 +628,9 @@ s32 ScanAndConnect(struct unk_struct *unpackedArgs) {
                                 unk.min_strength = 6;
                                 unk.max_strength = 100;
 
-                                // TODO: If this needs to be added, does that mean the struct is bigger than 76 bytes?
-                                // local_2c = 0;
+                                unk2 = 0;
 
-                                ret = sceNet_lib_0x7BA3ED91(g_WifiAdapter, &unk, unpackedArgs->unk2, unpackedArgs->unk7);
+                                ret = sceNet_lib_0x7BA3ED91(g_WifiAdapter, &unk, unpackedArgs->unk2, unpackedArgs->unk7, &unk2);
                                 tmp = WaitEventDeviceUpAndConnect(unpackedArgs);
                                 if ((tmp << 4) >> 0x14 == SCE_ERROR_FACILITY_NETWORK) {
                                     ret = tmp;
@@ -658,6 +654,64 @@ s32 ScanAndConnect(struct unk_struct *unpackedArgs) {
     return ret;
 }
 
+inline int WaitFlag(struct unk_struct *unpackedArgs, u32 *outBits, s32* connectionState) {
+    u32 tmp = 0;
+    while (1) {
+        sceKernelWaitEventFlag(unpackedArgs->eventFlags, 0xFFF, 1, outBits, 0);
+
+        if ((*outBits & 0x200) != 0) {
+            sceKernelClearEventFlag(unpackedArgs->eventFlags, ~0x200);
+            if (unpackedArgs->connectionState == 1) {
+                // FUN_000022b8(unpackedArgs);
+            } else {
+                if (unpackedArgs->connectionState == 3) {
+                    // FUN_0000554c(unpackedArgs, g_Unk2);
+                }
+            }
+            return 0;
+        }
+
+        if ((*outBits & SCE_NET_ADHOCCTL_DEVICE_UP) == 0) break;
+        sceKernelClearEventFlag(unpackedArgs->eventFlags, ~SCE_NET_ADHOCCTL_DEVICE_UP);
+        *connectionState = unpackedArgs->connectionState;
+        if ((*connectionState == 1 || *connectionState == 4) || (*connectionState == 5)) {
+            // iVar2 = FUN_00003cd8(unpackedArgs);
+            if (*connectionState >= 0) {
+                if (unpackedArgs->connectionState == 4) {
+                    // FUN_0000233c(unpackedArgs);
+                    //usedInFuncBufThing = 6;
+                    //FUN_00002600(uVar3, 0);
+                    tmp = unpackedArgs->unk5;
+                } else {
+                    if (unpackedArgs->connectionState == 5) {
+                        // FUN_0000233c(unpackedArgs);
+                        //usedInFuncBufThing = 7;
+                        if ((unpackedArgs->unk5 & 0x10) != 0) {
+                            //usedInFuncBufThing = 8;
+                            unpackedArgs->unk5 = unpackedArgs->unk5 & 0xf;
+                        }
+                        //FUN_00002600(uVar3, 0);
+                    }
+                    tmp = unpackedArgs->unk5;
+                }
+                if ((tmp & 0x10) != 0) {
+                    unpackedArgs->unk5 = tmp & 0xf;
+                }
+                break;
+            }
+            //FUN_000022b8(unpackedArgs);
+        } else {
+            if ((*connectionState != 3) /* || (iVar2 = FUN_00003cd8(param_2) && connectionState >= 0 )*/) {
+                break;
+            }
+            //FUN_0000554c(unpackedArgs, g_Unk2);
+        }
+        RunAdhocctlHandlers(0, /*actInThread*/ 0);
+        unpackedArgs->unk5 = unpackedArgs->unk5 & 0xe0000000;
+    }
+    return 1;
+}
+
 s32 ThreadFunc(SceSize args, void *argp) {
     // Bypass compiler warning
     (void) (args);
@@ -669,57 +723,11 @@ s32 ThreadFunc(SceSize args, void *argp) {
 
     struct unk_struct *unpackedArgs = (struct unk_struct *) argp;
 
-    do {
-        while (1) {
-            sceKernelWaitEventFlag(unpackedArgs->eventFlags, 0xFFF, 1, &outBits, 0);
-            if ((outBits & 0x200) != 0) {
-                sceKernelClearEventFlag(unpackedArgs->eventFlags, ~0x200);
-                if (unpackedArgs->connectionState == 1) {
-                    // FUN_000022b8(unpackedArgs);
-                } else {
-                    if (unpackedArgs->connectionState == 3) {
-                        // FUN_0000554c(unpackedArgs, g_Unk2);
-                    }
-                }
-                return 0;
-            }
-            if ((outBits & SCE_NET_ADHOCCTL_DEVICE_UP) == 0) break;
-            sceKernelClearEventFlag(unpackedArgs->eventFlags, ~SCE_NET_ADHOCCTL_DEVICE_UP);
-            connectionState = unpackedArgs->connectionState;
-            if ((connectionState == 1 || connectionState == 4) || (connectionState == 5)) {
-                // iVar2 = FUN_00003cd8(unpackedArgs);
-                if (connectionState >= 0) {
-                    if (unpackedArgs->connectionState == 4) {
-                        // FUN_0000233c(unpackedArgs);
-                        //usedInFuncBufThing = 6;
-                        //FUN_00002600(uVar3, 0);
-                        tmp = unpackedArgs->unk5;
-                    } else {
-                        if (unpackedArgs->connectionState == 5) {
-                            // FUN_0000233c(unpackedArgs);
-                            //usedInFuncBufThing = 7;
-                            if ((unpackedArgs->unk5 & 0x10) != 0) {
-                                //usedInFuncBufThing = 8;
-                                unpackedArgs->unk5 = unpackedArgs->unk5 & 0xf;
-                            }
-                            //FUN_00002600(uVar3, 0);
-                        }
-                        tmp = unpackedArgs->unk5;
-                    }
-                    if ((tmp & 0x10) != 0) {
-                        unpackedArgs->unk5 = tmp & 0xf;
-                    }
-                    break;
-                }
-                //FUN_000022b8(unpackedArgs);
-            } else {
-                if ((connectionState != 3) /* || (iVar2 = FUN_00003cd8(param_2) && connectionState >= 0 )*/) {
-                    break;
-                }
-                //FUN_0000554c(unpackedArgs, g_Unk2);
-            }
-            RunAdhocctlHandlers(0, /*actInThread*/ 0);
-            unpackedArgs->unk5 = unpackedArgs->unk5 & 0xe0000000;
+    while (1) {
+
+        if(WaitFlag(unpackedArgs, &outBits, &connectionState) == 0)
+        {
+            return 0;
         }
 
         if ((outBits & SCE_NET_ADHOCCTL_EVENT_CONNECT) != 0) {
@@ -732,8 +740,9 @@ s32 ThreadFunc(SceSize args, void *argp) {
                 if (tmp < 0) {
                     connectionState = tmp;
                 }
-                RunAdhocctlHandlers(0, /*actInThread*/ 0);
+                RunAdhocctlHandlers(SCE_NET_ADHOCCTL_EVENT_ERROR, /*actInThread*/ 0);
                 unpackedArgs->unk5 = unpackedArgs->unk5 & 0xe0000000;
+                continue;
             }
         }
 
@@ -746,12 +755,21 @@ s32 ThreadFunc(SceSize args, void *argp) {
         if ((outBits & SCE_NET_ADHOCCTL_EVENT_SCAN) != 0) {
             sceKernelClearEventFlag(unpackedArgs->eventFlags, ~SCE_NET_ADHOCCTL_EVENT_SCAN);
             connectionState = ScanAndConnect(unpackedArgs);
-            //if (connectionState < 0) goto LAB_000038a8;
-            RunAdhocctlHandlers(SCE_NET_ADHOCCTL_EVENT_SCAN, 0);
+            if (connectionState >= 0) {
+                RunAdhocctlHandlers(SCE_NET_ADHOCCTL_EVENT_SCAN, 0);
+            } else {
+                tmp = WaitEventDeviceUpAndConnect(unpackedArgs);
+                if (tmp < 0) {
+                    connectionState = tmp;
+                }
+                RunAdhocctlHandlers(SCE_NET_ADHOCCTL_EVENT_ERROR, /*actInThread*/ 0);
+                unpackedArgs->unk5 = unpackedArgs->unk5 & 0xe0000000;
+                continue;
+            }
         }
         if ((outBits & 0x10) != 0) {
             sceKernelClearEventFlag(unpackedArgs->eventFlags, ~0x10);
-            //connectionState = FUN_00003f00(unpackedArgs, g_Unk2);
+            connectionState = FUN_00003f00(unpackedArgs, g_Unk2);
             //if (connectionState < 0) goto LAB_000038a8;
             //FUN_00002600(4, 0);
         }
@@ -794,7 +812,7 @@ s32 ThreadFunc(SceSize args, void *argp) {
             tmp = g_Unk.connectionState;
         }
         g_Unk.connectionState = (s32) (tmp & 0xe0000000);
-    } while (1);
+    }
 }
 
 s32 CreateLwMutex() {

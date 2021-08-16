@@ -13,7 +13,7 @@ extern const char g_SSIDPrefixRegKey[];
 #define SCE_NET_ADHOCCTL_EVENT_ERROR         0x0
 #define SCE_NET_ADHOCCTL_EVENT_CONNECT       0x1
 #define SCE_NET_ADHOCCTL_EVENT_DISCONNECT    0x2
-#define SCE_NET_ADHOCCTL_EVENT_SCAN          0x3
+#define SCE_NET_ADHOCCTL_EVENT_SCAN          0x4
 // TODO: Is this truly what this means?
 #define SCE_NET_ADHOCCTL_DEVICE_UP           0x8
 
@@ -60,7 +60,7 @@ struct unk_struct2 {
 };
 
 struct unk_struct3 {
-    s32 unk;           // 0x0
+    s32 unk;           // 0x0  Type?
     char unk2[6];      // 0x4  BSSID?
     char channels[14]; // 0xa
     char unk3[36];     // 0x18 SSID + SSID length?
