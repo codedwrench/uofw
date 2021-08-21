@@ -7,7 +7,7 @@ struct ScanData {
     char channel;                     // 0xa
     unsigned char ssidLen;            // 0xb
     char ssid[32];                    // 0xc
-    unsigned int bsstype;             // 0x2c
+    unsigned int bssType;             // 0x2c
     unsigned int beaconPeriod;        // 0x30
     unsigned int dtimPeriod;          // 0x34 - probably true, but couldn't find in resulting data
     unsigned int timeStamp;           // 0x38 - probably true, but couldn't find in resulting data

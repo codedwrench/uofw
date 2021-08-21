@@ -1053,9 +1053,8 @@ int FUN_000050c8(struct unk_struct2 *param_1, char *param_2,char *param_3)
     struct ScanParams params;
     int bufferLen;
     u32 unk;
-    u32 unk2;
+    u32 bssType;
     u32 tmp;
-    u32 i;
     u32 flags = 0;
 
     sceKernelMemset(&params ,0 ,(sizeof(struct ScanParams)));
@@ -1073,9 +1072,9 @@ int FUN_000050c8(struct unk_struct2 *param_1, char *param_2,char *param_3)
     if (ret >= 0) {
         sceKernelMemset(g_Unk6,0, (sizeof(g_Unk6)));
         if ((bufferLen != 0) && ((int) g_ScanBuffer != 0)) {
-            tmp = 885194757; // TODO: What the heck is this?
+            bssType = pScanData->bssType;
             while (1) {
-                if (tmp == 2) {
+                if (bssType == BSS_TYPE_INDEPENDENT) {
                     // GameMode uses 2 as the first byte in vendor info
                     if (pScanData->gameModeData[0] == 2) {
                         tmp = 0;
@@ -1099,10 +1098,10 @@ int FUN_000050c8(struct unk_struct2 *param_1, char *param_2,char *param_3)
                                 // TODO: This is total nuts, what is this even doing
                                 if (pScanData->gameModeData[3] +
                                     (pScanData->gameModeData[4] * (pScanData->gameModeData[2]-1)) < 0x100) {
-                                    ret = 0;
+                                    tmp = 0;
                                     if (pScanData->gameModeData[2] != 0) {
                                         while(1) {
-                                            iVar8 = uVar5 + uVar4 * ret + -0xf;
+                                            iVar8 = pScanData->gameModeData[3] + pScanData->gameModeData[4] * ret + -0xf;
                                             *(uint *)(iVar3 * 0xc + 0x928) =
                                                     *(uint *)(iVar3 * 0xc + 0x928) |
                                                     1 << ((int)(iVar8 + ((uint)(iVar8 >> 0x1f) >> 0x1d)) >> 3 & 0x1fU);
@@ -1129,7 +1128,7 @@ int FUN_000050c8(struct unk_struct2 *param_1, char *param_2,char *param_3)
                     pScanData = (undefined4 *) * pScanData;
                 }
                 if (pScanData == (undefined4 *)0x0) break;
-                ret = pScanData[0xb];
+                bssType = pScanData->bssType;
             }
         }
         ret = sceUtilityGetSystemParamInt(2, local_38);
