@@ -37,8 +37,13 @@ struct AdhocHandler *g_Unk4[4]; // 0x8A0
 
 struct AdhocHandler *g_Unk5[4]; // 0x8E0
 
-// TODO: What's in 0x920 - 0x944
-s32 g_Unk6; // 0x944
+char g_Unk6[36]; // 0x920
+s32 g_Unk7; // 0x944
+
+// 0x00 = next?
+// 0x0a = channel
+struct ScanData g_ScanBuffer[32]; // 0xd48
+
 
 s32 g_MutexInited; // 0x1948
 SceLwMutex g_Mutex; // 0x194C
@@ -48,6 +53,10 @@ const char g_DefSSIDPrefix[] = "PSP";
 const char g_AdhocRegString[] = "/CONFIG/NETWORK/ADHOC";
 const char g_SSIDPrefixRegKey[] = "ssid_prefix";
 const char g_SSIDSeparator = '_'; // 0x653c
+
+const char g_MutexName[] = "SceNetAdhocctl"; // 0x656c
+const char g_Unk9; // 0x657b
+const char g_AllChannels[3] = {11, 6, 1}; // 0x657c
 
 SCE_MODULE_INFO(
         "sceNetAdhocctl_Library",
@@ -150,7 +159,7 @@ s32 StartAuthAndThread(s32 stackSize, s32 priority, struct ProductStruct *produc
         sceKernelMemcpy((void *) &g_Unk.product, product, (sizeof(struct ProductStruct)));
         ret = CreateLwMutex();
         if (ret >= 0) {
-            ret = sceKernelCreateEventFlag("SceNetAdhocctl", 0, 0, 0);
+            ret = sceKernelCreateEventFlag(g_MutexName, 0, 0, 0);
             if (ret >= 0) {
                 g_Unk.eventFlags = ret;
                 g_Unk.tid = sceKernelCreateThread("SceNetAdhocctl", ThreadFunc, priority, stackSize, 0, 0);
@@ -450,6 +459,169 @@ s32 InitAdhoc(struct unk_struct *unpackedArgs) {
     return ret;
 }
 
+int MemsetAndBuildGameModeSSID(struct unk_struct *unpackedArgs, char* ssid) {
+    sceKernelMemset(ssid, 0, 33);
+    return BuildSSID(unpackedArgs, ssid, 'G', unpackedArgs->ssidSuffix);
+}
+
+
+// CreateEnterGameMode?
+uint FUN_00003f00(struct unk_struct *unpackedArgs, struct unk_struct2* unk)
+{
+    s32 ret;
+    int iVar1;
+    uint uVar2;
+    uint uVar3;
+    s32 unk2;
+    SceInt64 systemTime;
+    undefined8 uVar5;
+    undefined in_stack_fffffe60;
+    undefined in_stack_fffffe61;
+    char ssid[33];
+    char *in_stack_fffffe74;
+    undefined auStack352 [6];
+    undefined local_15a;
+    undefined local_159;
+    undefined auStack344 [32];
+    undefined4 local_138;
+    uint local_134;
+    undefined2 local_122;
+    undefined4 local_f0;
+    undefined4 local_ec;
+    undefined4 local_e8;
+    undefined4 local_e4;
+    undefined4 local_e0;
+    undefined auStack208 [144];
+    int local_40;
+    undefined4 local_3c [3];
+
+    ret = (s32) SCE_ERROR_NET_ADHOCCTL_ALREADY_CONNECTED;
+    if (unpackedArgs->connectionState == 0) {
+        ret = (s32) SCE_ERROR_NET_ADHOCCTL_WLAN_SWITCH_DISABLED;
+        if (sceWlanGetSwitchState() != 0) {
+            systemTime = sceKernelGetSystemTimeWide();
+            ret = (s32)(systemTime >> 0x20);
+            g_Unk7 = -1;
+            unk2 = unk->unk9;
+            while (unk2 == 0) {
+                local_40 = 0;
+                iVar1 = local_40;
+                LAB_00003fcc:
+                local_40 = iVar1;
+                unk2 = sceWlanDevAttach();
+                if (unk2 == 0 || unk2 == (s32) SCE_ERROR_NET_WLAN_ALREADY_ATTACHED) {
+                    unpackedArgs->unk5 = unpackedArgs->unk5 & 0xc0000001;
+
+                    ret = sceNetConfigUpInterface(g_WifiAdapter);
+                    if (ret >= 0) {
+                        ret = sceNetConfigSetIfEventFlag(g_WifiAdapter,
+                                                         unpackedArgs->eventFlags,
+                                                         SCE_NET_ADHOCCTL_DEVICE_UP);
+
+                        if (ret >= 0) {
+                            ret = (s32) SCE_ERROR_NET_ADHOCCTL_WLAN_SWITCH_DISABLED;
+                            if (sceWlanGetSwitchState() != 0) {
+                                ret = unk->unk10;
+                                if ((ret & 1) == 0) {
+                                    sceKernelMemset(&ssid, 0, (sizeof(ssid)));
+                                    ret = MemsetAndBuildGameModeSSID(unpackedArgs, ssid);
+                                    if (ret >= 0) {
+                                        unk->ssid_len = (short) ret;
+                                        sceKernelMemcpy(unk->ssid, &ssid, ret & 0xff);
+                                        uVar3 = FUN_000050c8(unk, &stack0xfffffe60, &stack0xfffffe61);
+                                        unk2 = WaitEventDeviceUpAndConnect(unpackedArgs);
+                                        if ((unk2 << 4) >> 0x14 == SCE_ERROR_FACILITY_NETWORK) goto LAB_0000451c;
+
+                                        if (-1 < (int)uVar3) {
+                                            uVar3 = unk->unk10;
+                                            unk->unk8 = in_stack_fffffe61;
+                                            unk->unk6 = in_stack_fffffe60;
+                                            goto LAB_00004078;
+                                        }
+                                    }
+                                }
+                                else {
+                                    LAB_00004078:
+                                    if (((uVar3 & 2) == 0) ||
+                                    ((uVar3 = FUN_000054d8(4), -1 < (int)uVar3 &&
+                                    (uRam00000944 = uVar3, uVar3 = sceWlanDrv_lib_0x5BAA1FE5(1), -1 < (int)uVar3
+                                    /* WARNING: Read-only address (ram,0x00000944) is written */)))) {
+                                        sceKernelMemset(auStack352,0,0x70);
+                                        local_159 = *(undefined *)(unk + 0x70);
+                                        sceKernelMemcpy(auStack344, unk + 0x72, local_159);
+                                        local_15a = *(undefined *)(unk + 0x71);
+                                        local_134 = (uint)*(ushort *)(unk + 0xb2);
+                                        local_138 = 2;
+                                        local_122 = 0x22;
+                                        local_3c[0] = 0;
+                                        uVar3 = sceNet_lib_0x03164B12(&DAT_00006564,auStack352,local_3c);
+                                        unk2 = FUN_00003cf8(unpackedArgs);
+                                        if ((unk2 << 4) >> 0x14 == 0x41) {
+                                            LAB_0000451c:
+                                            uVar3 = unk2;
+                                            if (-1 < (int)unk2) {
+                                                return unk2;
+                                            }
+                                        }
+                                        else {
+                                            if ((((-1 < (int)uVar3) && (uVar3 = FUN_000017b4(unpackedArgs), -1 < (int)uVar3)) &&
+                                            (uVar3 = FUN_00003cf8(unpackedArgs), -1 < (int)uVar3)) &&
+                                            ((uVar3 = sceUtilityGetSystemParamString(1,auStack208,0x80), -1 < (int)uVar3
+                                            && (uVar3 = FUN_00003cf8(unpackedArgs), -1 < (int)uVar3)))) {
+                                                local_f0 = 1000000;
+                                                local_ec = 500000;
+                                                local_e8 = 5;
+                                                local_e4 = 30000000;
+                                                local_e0 = 300000000;
+                                                uVar3 = sceNetAdhocAuth_lib_0x89F2A732
+                                                        ("wlan", 0x30, 0x2000, (int)&local_f0, ssid,
+                                                         in_stack_fffffe74);
+                                                if (-1 < (int)uVar3) {
+                                                    uRam00000948 = 1;
+                                                    /* WARNING: Read-only address (ram,0x00000948) is written */
+                                                    /* WARNING: Bad instruction - Truncating control flow here */
+                                                    halt_baddata();
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    goto LAB_00004528;
+                }
+                if ((unk2 >> 0x1f & (uint)(unk2 != 0x80410d0e)) != 0) {
+                    return unk2;
+                }
+                sceKernelDelayThread(1000000);
+                unk2 = *(uint *)(unk + 0xb4);
+            }
+            uVar5 = sceKernelGetSystemTimeWide();
+            uVar2 = (uint)((ulonglong)uVar5 >> 0x20);
+            iVar1 = unk2 - (uVar2 - uVar3);
+            if ((false) || (((int)uVar5 - (int)systemTime == (uint)(uVar2 < uVar3) && (uVar2 - uVar3 < unk2))))
+                goto LAB_00003fcc;
+            uVar3 = SCE_ERROR_NET_ADHOCCTL_TIMEOUT;
+            LAB_00004528:
+            sceNetAdhocAuth_lib_0x72AAC6D3(0,0);
+            sceNetAdhocAuth_lib_0x2E6AA271();
+            sceNetConfigSetIfEventFlag(g_WifiAdapter,0,0);
+            local_3c[0] = 0;
+            sceNet_lib_0xDA02F383(&DAT_00006564,local_3c);
+            if (((*(uint *)(unk + 0xb8) & 2) != 0) && (sceWlanDrv_lib_0x5BAA1FE5(0), true)) {
+                FUN_000054d8();
+            }
+            sceNetConfigDownInterface(g_WifiAdapter);
+            sceWlanDevDetach();
+        }
+    }
+    /* WARNING: Read-only address (ram,0x00000944) is written */
+    /* WARNING: Read-only address (ram,0x00000948) is written */
+    return uVar3;
+}
+
 s32 GetChannelAndSSID(struct unk_struct *unpackedArgs, char *ssid, u32 *channel) {
     s32 adhocChannel;
     s32 ret;
@@ -511,6 +683,7 @@ s32 BuildSSID(struct unk_struct *unpackedArgs, char *ssid, char adhocSubType, ch
         for (i = 0; (i < 8) && (ssidSuffixPtr != NULL); i++) {
             sceKernelMemcpy(ssid + 17 + i, ssidSuffixPtr, 1);
             ssidSuffixPtr++;
+            ret++;
         }
     }
 
@@ -546,7 +719,7 @@ s32 ScanAndConnect(struct unk_struct *unpackedArgs) {
     // 0x40 (0x0)
     // 0x3c (0x1)
     // 0x38 (0x64)
-    struct unk_struct3 unk;
+    struct ScanParams params;
     u32 unk2;
     char channel;
 
@@ -589,10 +762,10 @@ s32 ScanAndConnect(struct unk_struct *unpackedArgs) {
                         ret = SCE_ERROR_NET_ADHOCCTL_WLAN_SWITCH_DISABLED;
                         if (sceWlanGetSwitchState() != 0) {
                             lockRes = sceKernelLockLwMutex(&g_Mutex, 1);;
-                            sceKernelMemset(&unk, 0, (sizeof(unk)));
+                            sceKernelMemset(&params, 0, (sizeof(params)));
                             sceKernelMemset(unpackedArgs->unk7, 0, (sizeof(unpackedArgs->unk7)));
 
-                            unk.unk = 2;
+                            params.type = BSS_TYPE_INDEPENDENT;
 
                             ret = sceUtilityGetSystemParamInt(SYSTEMPARAM_INT_ADHOC_CHANNEL, &tmp);
                             if (ret >= 0) {
@@ -608,29 +781,29 @@ s32 ScanAndConnect(struct unk_struct *unpackedArgs) {
                                 // TODO: memset done before, why is this needed?
                                 // Clear 14 spots
                                 while (i < 14) {
-                                    unk.channels[i] = 0;
+                                    params.channels[i] = 0;
                                     i++;
                                 }
 
                                 // Selects which channels to scan on
                                 if (channel != 0) {
-                                    unk.channels[0] = channel;
+                                    params.channels[0] = channel;
                                 } else {
-                                    unk.channels[0] = 11;
-                                    unk.channels[1] = 6;
-                                    unk.channels[2] = 1;
+                                    params.channels[0] = 11;
+                                    params.channels[1] = 6;
+                                    params.channels[2] = 1;
                                 }
 
                                 unpackedArgs->unk2 = 1920;
 
-                                unk.unk4 = 1;
-                                unk.unk5 = 0;
-                                unk.min_strength = 6;
-                                unk.max_strength = 100;
+                                params.unk4 = 1;
+                                params.unk5 = 0;
+                                params.min_strength = 6;
+                                params.max_strength = 100;
 
                                 unk2 = 0;
 
-                                ret = sceNet_lib_0x7BA3ED91(g_WifiAdapter, &unk, unpackedArgs->unk2, unpackedArgs->unk7, &unk2);
+                                ret = sceNet_lib_0x7BA3ED91(g_WifiAdapter, &params, unpackedArgs->unk2, unpackedArgs->unk7, &unk2);
                                 tmp = WaitEventDeviceUpAndConnect(unpackedArgs);
                                 if ((tmp << 4) >> 0x14 == SCE_ERROR_FACILITY_NETWORK) {
                                     ret = tmp;
@@ -767,9 +940,10 @@ s32 ThreadFunc(SceSize args, void *argp) {
                 continue;
             }
         }
+        // This seems to do something with gamemode
         if ((outBits & 0x10) != 0) {
             sceKernelClearEventFlag(unpackedArgs->eventFlags, ~0x10);
-            connectionState = FUN_00003f00(unpackedArgs, g_Unk2);
+            connectionState = FUN_00003f00(unpackedArgs, &g_Unk2);
             //if (connectionState < 0) goto LAB_000038a8;
             //FUN_00002600(4, 0);
         }
@@ -863,4 +1037,175 @@ s32 GetSSIDPrefix(char *ssidPrefix) {
 
     prefixSize = sceNetStrlen(g_DefSSIDPrefix);
     return (s32) sceKernelMemcpy(ssidPrefix, g_DefSSIDPrefix, prefixSize);
+}
+
+int FUN_000050c8(struct unk_struct2 *param_1, char *param_2,char *param_3)
+{
+    s32 ret;
+    int *piVar2;
+    int iVar3;
+    int iVar6;
+    int iVar7;
+    int iVar8;
+    int iVar9;
+    char *channel;
+    struct ScanData *pScanData;
+    struct ScanParams params;
+    int bufferLen;
+    u32 unk;
+    u32 unk2;
+    u32 tmp;
+    u32 i;
+    u32 flags = 0;
+
+    sceKernelMemset(&params ,0 ,(sizeof(struct ScanParams)));
+    params.type = BSS_TYPE_INDEPENDENT;
+    sceKernelMemcpy(params.channels, &g_AllChannels, 3);
+    pScanData = g_ScanBuffer;
+    params.unk4 = 1;
+    params.min_strength = 6;
+    params.max_strength = 500;
+    params.unk5 = 0;
+    bufferLen = 3072;
+    sceKernelMemset(g_ScanBuffer, 0, bufferLen);
+    unk = 0;
+    ret = sceNet_lib_0x7BA3ED91(g_WifiAdapter, &params, bufferLen, g_ScanBuffer, &unk);
+    if (ret >= 0) {
+        sceKernelMemset(g_Unk6,0, (sizeof(g_Unk6)));
+        if ((bufferLen != 0) && ((int) g_ScanBuffer != 0)) {
+            tmp = 885194757; // TODO: What the heck is this?
+            while (1) {
+                if (tmp == 2) {
+                    // GameMode uses 2 as the first byte in vendor info
+                    if (pScanData->gameModeData[0] == 2) {
+                        tmp = 0;
+
+                        // This seems to be getting the channel info
+                        while (tmp < 3) {
+                            if (*(char *)((int)pScanData->channel) == *channel) break;
+                            tmp++;
+                            channel++;
+                        }
+
+                        if (tmp == 3) {
+                            // First field is probably the next pointer
+                            pScanData = pScanData->next;
+                        } else {
+                            // In GameMode this byte seems to be 0x0f
+                            if (pScanData->gameModeData[3] < 0xf) {
+                                pScanData = pScanData->next;
+                            }
+                            else {
+                                // TODO: This is total nuts, what is this even doing
+                                if (pScanData->gameModeData[3] +
+                                    (pScanData->gameModeData[4] * (pScanData->gameModeData[2]-1)) < 0x100) {
+                                    ret = 0;
+                                    if (pScanData->gameModeData[2] != 0) {
+                                        while(1) {
+                                            iVar8 = uVar5 + uVar4 * ret + -0xf;
+                                            *(uint *)(iVar3 * 0xc + 0x928) =
+                                                    *(uint *)(iVar3 * 0xc + 0x928) |
+                                                    1 << ((int)(iVar8 + ((uint)(iVar8 >> 0x1f) >> 0x1d)) >> 3 & 0x1fU);
+                                            ret = ret + 1;
+                                            uVar11 = (uint)*(byte *)(pScanData + 0x14);
+                                            if ((int)uVar11 <= ret) break;
+                                            uVar5 = (uint)*(byte *)((int)pScanData + 0x51);
+                                            uVar4 = (uint)*(byte *)((int)pScanData + 0x52);
+                                        }
+                                    }
+                                    *(uint *)(iVar3 * 0xc + 0x924) = *(int *)(iVar3 * 0xc + 0x924) + uVar11;
+                                    goto LAB_000051dc;
+                                }
+                                pScanData = (undefined4 *) * pScanData;
+                            }
+                        }
+                    }
+                    else {
+                        pScanData = (undefined4 *) * pScanData;
+                    }
+                }
+                else {
+                    LAB_000051dc:
+                    pScanData = (undefined4 *) * pScanData;
+                }
+                if (pScanData == (undefined4 *)0x0) break;
+                ret = pScanData[0xb];
+            }
+        }
+        ret = sceUtilityGetSystemParamInt(2, local_38);
+        if (-1 < ret) {
+            if (local_38[0] == 0xb || local_38[0] == 6) {
+                iVar3 = param_1->field_0x0;
+            }
+            else {
+                uVar5 = 0;
+                if (local_38[0] == 1) {
+                    uVar5 = local_38[0];
+                }
+                iVar3 = param_1->field_0x0;
+                local_38[0] = uVar5;
+            }
+            uVar5 = 0;
+            if (0 < iVar3) {
+                do {
+                    uVar11 = uVar5 & 0x1f;
+                    uVar5 = uVar5 + 1;
+                    uVar12 = uVar12 | 1 << uVar11;
+                } while ((int)uVar5 < iVar3);
+            }
+            do {
+                iVar3 = -1;
+                piVar2 = (int *)0x920;
+                iVar8 = 0;
+                iVar6 = 0;
+                do {
+                    if (*piVar2 != 1) {
+                        if ((local_38[0] == 0) ||
+                        (iVar7 = iVar3, iVar9 = iVar8, (byte)(&DAT_0000657c)[iVar6] == local_38[0])) {
+                            iVar7 = iVar6;
+                            if (iVar3 == -1) {
+                                iVar9 = piVar2[1];
+                            }
+                            else {
+                                iVar9 = piVar2[1];
+                                if (iVar8 <= iVar9) goto LAB_0000529c;
+                            }
+                        }
+                        iVar3 = iVar7;
+                        iVar8 = iVar9;
+                    }
+                    LAB_0000529c:
+                    iVar6 = iVar6 + 1;
+                    piVar2 = piVar2 + 3;
+                } while (iVar6 < 3);
+                if (iVar3 == -1) {
+                    return -0x7fbef4f3;
+                }
+                iVar8 = *(int *)(iVar3 * 0xc + 0x924);
+                if (7 < iVar8) {
+                    return -0x7fbef4f3;
+                }
+                iVar6 = param_1->field_0x0;
+                if (0x10 < iVar8 + iVar6) {
+                    return -0x7fbef4f3;
+                }
+                uVar5 = 0;
+                if (-1 < 0x1d - iVar6) {
+                    uVar11 = uVar12;
+                    do {
+                        if ((*(uint *)(iVar3 * 0xc + 0x928) & uVar11) == 0) break;
+                        uVar5 = uVar5 + 1;
+                        uVar11 = uVar12 << (uVar5 & 0x1f);
+                    } while ((int)uVar5 <= 0x1d - iVar6);
+                }
+                if ((int)uVar5 <= 0x1d - iVar6) {
+                    *param_2 = (&DAT_0000657c)[iVar3];
+                    *param_3 = (char)uVar5 * '\b' + '\x0f';
+                    return ret;
+                }
+                *(undefined4 *)(iVar3 * 0xc + 0x920) = 1;
+            } while( true );
+        }
+    }
+    return ret;
 }

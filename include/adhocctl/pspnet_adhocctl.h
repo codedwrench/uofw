@@ -20,6 +20,11 @@ extern const char g_SSIDPrefixRegKey[];
 #define ADHOC_SUBTYPE_NORMALMODE 'L'
 #define ADHOC_SUBTYPE_GAMEMODE   'G'
 
+enum BssTypes {
+    BSS_TYPE_INFRASTRUCTURE = 1,
+    BSS_TYPE_INDEPENDENT    = 2
+};
+
 enum AdhocIds {
     SCE_NET_ADHOCCTL_ADHOCTYPE_NORMAL = 0,
     SCE_NET_ADHOCCTL_ADHOCTYPE_RESERVED,
@@ -29,6 +34,18 @@ enum AdhocIds {
 struct ProductStruct {
     enum AdhocIds adhocId;
     char product[9]; // Product Id, e.g. UCUS98612
+};
+
+// This matches wireshark capabilities (the first 2 bytes of it)
+enum CapabilityMasks {
+    CAPABILITY_ESS             = 0x1,
+    CAPABILITY_IBSS            = 0x2,
+    CAPABILITY_CF_POLLABLE     = 0x4,
+    CAPABILITY_CF_POLLREQ      = 0x8,
+    CAPABILITY_PRIVACY         = 0x10,
+    CAPABILITY_SHORT_PREAMBLE  = 0x20,
+    CAPABILITY_PBCC            = 0x40,
+    CAPABILITY_CHANNEL_AGILITY = 0x80
 };
 
 struct unk_struct {
@@ -45,7 +62,7 @@ struct unk_struct {
     char unk7[1920];              // 0x2c (buffer?)
     char unk8[28];                // 0x7ac
     struct ProductStruct product; // 0x7c8
-};
+} __attribute__((packed));
 
 struct unk_struct2 {
     s32 unk;           // 0x00 (an amount of unk2's?)
@@ -53,21 +70,15 @@ struct unk_struct2 {
     char unk3[22];     // 0x0a
     s32 eventFlagBits; // 0x20
     char unk4[64];     // 0x24
-    char unk5[80];     // 0x64
-    s32 unk7;          // 0xb4
-    s32 unk8;          // 0xb8
-    s32 unk9;          // 0xbc
-};
-
-struct unk_struct3 {
-    s32 unk;           // 0x0  Type?
-    char unk2[6];      // 0x4  BSSID?
-    char channels[14]; // 0xa
-    char unk3[36];     // 0x18 SSID + SSID length?
-    s32 unk4;          // 0x3c
-    s32 unk5;          // 0x40
-    s32 min_strength;  // 0x44
-    s32 max_strength;  // 0x48
+    char unk5[12];     // 0x64
+    u8 ssid_len;       // 0x70
+    u8 unk6;           // 0x71
+    char ssid[33];     // 0x72
+    char unk7[23];     // 0x93
+    char unk8[10];     // 0xaa
+    s32 unk9;          // 0xb4
+    s32 unk10;         // 0xb8
+    s32 unk11;         // 0xbc
 };
 
 typedef void(*sceNetAdhocctlHandler)(s32 flag, s32 err, void *unk);
@@ -77,7 +88,7 @@ struct AdhocHandler {
     sceNetAdhocctlHandler handler;  // 0x4
     void *handlerArg;               // 0x8
     s32 funcGlobalArea;             // 0xc $gp gets set to here?
-};
+} __attribute__((packed));
 
 /**
  * Inits the adhocctl module.
