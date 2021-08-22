@@ -1047,7 +1047,7 @@ int FUN_000050c8(struct unk_struct2 *param_1, char *channel, char *unk)
     struct ScanData *pScanData;
     struct ScanParams params;
     int bufferLen;
-    u32 unk;
+    u32 unk2;
     u32 bssType;
     s32 channelIdx;
     u32 channels = 0;
@@ -1055,7 +1055,6 @@ int FUN_000050c8(struct unk_struct2 *param_1, char *channel, char *unk)
     u32 tmp2 = 0;
     u32 unk6Offset;
     u32 unk3;
-    u32 unk4;
     unsigned char playerCount;
     unsigned char game3;
     unsigned char game4;
@@ -1071,8 +1070,8 @@ int FUN_000050c8(struct unk_struct2 *param_1, char *channel, char *unk)
     params.unk5 = 0;
     bufferLen = 3072;
     sceKernelMemset(g_ScanBuffer, 0, bufferLen);
-    unk = 0;
-    ret = sceNet_lib_0x7BA3ED91(g_WifiAdapter, &params, bufferLen, g_ScanBuffer, &unk);
+    unk2 = 0;
+    ret = sceNet_lib_0x7BA3ED91(g_WifiAdapter, &params, bufferLen, g_ScanBuffer, &unk2);
     if (ret >= 0) {
         sceKernelMemset(g_Unk6,0, (sizeof(g_Unk6)));
         if ((bufferLen != 0) && ((int) g_ScanBuffer != 0)) {
@@ -1206,7 +1205,7 @@ int FUN_000050c8(struct unk_struct2 *param_1, char *channel, char *unk)
             }
             *channel = g_AllChannels[channelIdx];
             *unk = (char)((8 * tmp) + 15);
-            return ret;
         }
     }
+    return ret;
 }
