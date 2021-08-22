@@ -37,16 +37,12 @@ struct AdhocHandler *g_Unk4[4]; // 0x8A0
 
 struct AdhocHandler *g_Unk5[4]; // 0x8E0
 
-char g_Unk6[36]; // 0x920
+unsigned char g_Unk6[36]; // 0x920
 s32 g_Unk7; // 0x944
 
 // 0x00 = next?
 // 0x0a = channel
 struct ScanData g_ScanBuffer[32]; // 0xd48
-
-
-s32 g_MutexInited; // 0x1948
-SceLwMutex g_Mutex; // 0x194C
 
 const char g_WifiAdapter[] = "wifi";
 const char g_DefSSIDPrefix[] = "PSP";
@@ -57,6 +53,9 @@ const char g_SSIDSeparator = '_'; // 0x653c
 const char g_MutexName[] = "SceNetAdhocctl"; // 0x656c
 const char g_Unk9; // 0x657b
 const char g_AllChannels[3] = {11, 6, 1}; // 0x657c
+
+s32 g_MutexInited; // 0x1948
+SceLwMutex g_Mutex; // 0x194C
 
 SCE_MODULE_INFO(
         "sceNetAdhocctl_Library",
@@ -417,7 +416,7 @@ s32 InitAdhoc(struct unk_struct *unpackedArgs) {
                     || (ret < 0)) { // if sceNet_lib_0xD5B64E37 failed
                     err = 1;
                 } else {
-                    ret = sceUtilityGetSystemParamString(1, nickname, sizeof(nickname));
+                    ret = sceUtilityGetSystemParamString(SYSTEMPARAM_STRING_NICKNAME, nickname, sizeof(nickname));
                     if (ret < 0) {
                         err = 1;
                     }
@@ -1039,23 +1038,28 @@ s32 GetSSIDPrefix(char *ssidPrefix) {
     return (s32) sceKernelMemcpy(ssidPrefix, g_DefSSIDPrefix, prefixSize);
 }
 
-int FUN_000050c8(struct unk_struct2 *param_1, char *param_2,char *param_3)
+// GameMode analyse beacon frame
+int FUN_000050c8(struct unk_struct2 *param_1, char *channel, char *unk)
 {
     s32 ret;
-    int *piVar2;
-    int iVar3;
-    int iVar6;
-    int iVar7;
-    int iVar8;
-    int iVar9;
-    char *channel;
+    s32 adhocChannel;
+    char *pChannel;
     struct ScanData *pScanData;
     struct ScanParams params;
     int bufferLen;
     u32 unk;
     u32 bssType;
-    u32 tmp;
-    u32 flags = 0;
+    s32 channelIdx;
+    u32 channels = 0;
+    s32 tmp = 0;
+    u32 tmp2 = 0;
+    u32 unk6Offset;
+    u32 unk3;
+    u32 unk4;
+    unsigned char playerCount;
+    unsigned char game3;
+    unsigned char game4;
+    unsigned char* pG_Unk6;
 
     sceKernelMemset(&params ,0 ,(sizeof(struct ScanParams)));
     params.type = BSS_TYPE_INDEPENDENT;
@@ -1077,134 +1081,132 @@ int FUN_000050c8(struct unk_struct2 *param_1, char *param_2,char *param_3)
                 if (bssType == BSS_TYPE_INDEPENDENT) {
                     // GameMode uses 2 as the first byte in vendor info
                     if (pScanData->gameModeData[0] == 2) {
-                        tmp = 0;
+                        channelIdx = 0;
 
                         // This seems to be getting the channel info
-                        while (tmp < 3) {
-                            if (*(char *)((int)pScanData->channel) == *channel) break;
-                            tmp++;
-                            channel++;
+                        while (channelIdx < 3) {
+                            if (pScanData->channel == *pChannel) {
+                                break;
+                            }
+                            channelIdx++;
+                            pChannel++;
                         }
 
-                        if (tmp == 3) {
+                        if (channelIdx == 3) {
                             // First field is probably the next pointer
                             pScanData = pScanData->next;
                         } else {
+                            game3 = pScanData->gameModeData[3];
                             // In GameMode this byte seems to be 0x0f
-                            if (pScanData->gameModeData[3] < 0xf) {
+                            if (game3 < 0xf) {
                                 pScanData = pScanData->next;
                             }
                             else {
+                                playerCount = pScanData->gameModeData[2];
+                                game4 = pScanData->gameModeData[4]; // [ 08 ]
+
                                 // TODO: This is total nuts, what is this even doing
-                                if (pScanData->gameModeData[3] +
-                                    (pScanData->gameModeData[4] * (pScanData->gameModeData[2]-1)) < 0x100) {
-                                    tmp = 0;
+                                if (game3 + (game4 * (playerCount - 1)) < 0x100) {
                                     if (pScanData->gameModeData[2] != 0) {
                                         while(1) {
-                                            iVar8 = pScanData->gameModeData[3] + pScanData->gameModeData[4] * ret + -0xf;
-                                            *(uint *)(iVar3 * 0xc + 0x928) =
-                                                    *(uint *)(iVar3 * 0xc + 0x928) |
-                                                    1 << ((int)(iVar8 + ((uint)(iVar8 >> 0x1f) >> 0x1d)) >> 3 & 0x1fU);
-                                            ret = ret + 1;
-                                            uVar11 = (uint)*(byte *)(pScanData + 0x14);
-                                            if ((int)uVar11 <= ret) break;
-                                            uVar5 = (uint)*(byte *)((int)pScanData + 0x51);
-                                            uVar4 = (uint)*(byte *)((int)pScanData + 0x52);
+                                            *(int*)(g_Unk6 + (3 * channelIdx) + 2) |= 1 << ((game3 + (game4 * tmp) - 15) / 8);
+                                            tmp++;
+                                            playerCount = pScanData->gameModeData[2];
+                                            unk6Offset = 3 * channelIdx;
+                                            if (tmp >= playerCount) {
+                                                break;
+                                            }
+                                            game3 = pScanData->gameModeData[3]; // [ 0F ]
+                                            game4 = pScanData->gameModeData[4];
                                         }
+                                    } else {
+                                        unk6Offset = 3 * channelIdx;
                                     }
-                                    *(uint *)(iVar3 * 0xc + 0x924) = *(int *)(iVar3 * 0xc + 0x924) + uVar11;
-                                    goto LAB_000051dc;
+                                    *(int*)(g_Unk6 + unk6Offset + 1) += playerCount;
                                 }
-                                pScanData = (undefined4 *) * pScanData;
+                                pScanData = pScanData->next;
                             }
                         }
+                    } else {
+                        pScanData = pScanData->next;
                     }
-                    else {
-                        pScanData = (undefined4 *) * pScanData;
-                    }
+                } else {
+                    pScanData = pScanData->next;
                 }
-                else {
-                    LAB_000051dc:
-                    pScanData = (undefined4 *) * pScanData;
-                }
-                if (pScanData == (undefined4 *)0x0) break;
+                if (pScanData == NULL) break;
                 bssType = pScanData->bssType;
             }
         }
-        ret = sceUtilityGetSystemParamInt(2, local_38);
-        if (-1 < ret) {
-            if (local_38[0] == 0xb || local_38[0] == 6) {
-                iVar3 = param_1->field_0x0;
+        ret = sceUtilityGetSystemParamInt(SYSTEMPARAM_INT_ADHOC_CHANNEL, &adhocChannel);
+        if (ret >= 0) {
+            if (adhocChannel == 11 || adhocChannel == 6) {
+                channelIdx = param_1->unk;
             }
             else {
-                uVar5 = 0;
-                if (local_38[0] == 1) {
-                    uVar5 = local_38[0];
+                tmp = 0;
+                if (adhocChannel == 1) {
+                    tmp = (unsigned char) adhocChannel;
                 }
-                iVar3 = param_1->field_0x0;
-                local_38[0] = uVar5;
+                channelIdx = param_1->unk;
+                // TODO: Wtf?
+                adhocChannel = (s32) tmp;
             }
-            uVar5 = 0;
-            if (0 < iVar3) {
-                do {
-                    uVar11 = uVar5 & 0x1f;
-                    uVar5 = uVar5 + 1;
-                    uVar12 = uVar12 | 1 << uVar11;
-                } while ((int)uVar5 < iVar3);
+            tmp = 0;
+            if (channelIdx >= 0) {
+                while (tmp < channelIdx) {
+                    tmp2 = tmp & 0x1f;
+                    tmp++;
+                    channels |= (1 << tmp2);
+                }
             }
-            do {
-                iVar3 = -1;
-                piVar2 = (int *)0x920;
-                iVar8 = 0;
-                iVar6 = 0;
-                do {
-                    if (*piVar2 != 1) {
-                        if ((local_38[0] == 0) ||
-                        (iVar7 = iVar3, iVar9 = iVar8, (byte)(&DAT_0000657c)[iVar6] == local_38[0])) {
-                            iVar7 = iVar6;
-                            if (iVar3 == -1) {
-                                iVar9 = piVar2[1];
-                            }
-                            else {
-                                iVar9 = piVar2[1];
-                                if (iVar8 <= iVar9) goto LAB_0000529c;
-                            }
-                        }
-                        iVar3 = iVar7;
-                        iVar8 = iVar9;
+
+            while(1) {
+                channelIdx = -1;
+                pG_Unk6 = g_Unk6;
+                unk3 = 0;
+                tmp = 0;
+                while (tmp < 3) {
+                    if (*pG_Unk6 == 1 || ((adhocChannel != 0) && (g_AllChannels[tmp] != adhocChannel))) {
+                        tmp++;
+                        pG_Unk6 += 12;
+                    } else if (channelIdx == -1 || (pG_Unk6[1] < (char) unk3)) {
+                        unk3 = pG_Unk6[1];
+                        channelIdx = (s32) tmp;
+                        tmp++;
+                        pG_Unk6 += 12;
                     }
-                    LAB_0000529c:
-                    iVar6 = iVar6 + 1;
-                    piVar2 = piVar2 + 3;
-                } while (iVar6 < 3);
-                if (iVar3 == -1) {
-                    return -0x7fbef4f3;
                 }
-                iVar8 = *(int *)(iVar3 * 0xc + 0x924);
-                if (7 < iVar8) {
-                    return -0x7fbef4f3;
+
+                if (channelIdx == -1) {
+                    return SCE_ERROR_NET_ADHOCCTL_CHANNEL_NOT_AVAILABLE;
                 }
-                iVar6 = param_1->field_0x0;
-                if (0x10 < iVar8 + iVar6) {
-                    return -0x7fbef4f3;
+
+                tmp = g_Unk6[4 + (3 * channelIdx)];
+                if ((tmp >= 8) || (tmp + param_1->unk >= 17)) {
+                    return SCE_ERROR_NET_ADHOCCTL_CHANNEL_NOT_AVAILABLE;
                 }
-                uVar5 = 0;
-                if (-1 < 0x1d - iVar6) {
-                    uVar11 = uVar12;
-                    do {
-                        if ((*(uint *)(iVar3 * 0xc + 0x928) & uVar11) == 0) break;
-                        uVar5 = uVar5 + 1;
-                        uVar11 = uVar12 << (uVar5 & 0x1f);
-                    } while ((int)uVar5 <= 0x1d - iVar6);
+
+                tmp = 0;
+                if (29 - param_1->unk >= 0) {
+                    tmp2 = channels;
+                    while((29 - param_1->unk) >= tmp) {
+                        if (((g_Unk6[8 + (3 * channelIdx)]) & tmp2) == 0) {
+                            break;
+                        }
+                        tmp++;
+                        tmp2 = channels << tmp;
+                    }
                 }
-                if ((int)uVar5 <= 0x1d - iVar6) {
-                    *param_2 = (&DAT_0000657c)[iVar3];
-                    *param_3 = (char)uVar5 * '\b' + '\x0f';
-                    return ret;
+
+                if (29 - param_1->unk < tmp) {
+                    g_Unk6[3 * channelIdx] = 1;
+                    continue;
                 }
-                *(undefined4 *)(iVar3 * 0xc + 0x920) = 1;
-            } while( true );
+                break;
+            }
+            *channel = g_AllChannels[channelIdx];
+            *unk = (char)((8 * tmp) + 15);
+            return ret;
         }
     }
-    return ret;
 }

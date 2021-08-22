@@ -62,8 +62,10 @@ struct unk_struct {
     char unk7[1920];              // 0x2c (buffer?)
     char unk8[28];                // 0x7ac
     struct ProductStruct product; // 0x7c8
-} __attribute__((packed));
+};
 
+
+// Gamemode stuff?
 struct unk_struct2 {
     s32 unk;           // 0x00 (an amount of unk2's?)
     char unk2[6];      // 0x04
