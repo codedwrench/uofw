@@ -67,16 +67,17 @@ struct unk_struct {
 
 // Gamemode stuff?
 struct unk_struct2 {
-    s32 unk;           // 0x00 (an amount of unk2's?)
-    char unk2[6];      // 0x04
-    char unk3[22];     // 0x0a
+    s32 unk;           // 0x00 (an amount of unk2's?) // 2
+    char srcMac[6];    // 0x04
+    char destMac[6];   // 0x0a
+    char unk3[16];     // 0x10
     s32 eventFlagBits; // 0x20
     char unk4[64];     // 0x24
     char unk5[12];     // 0x64
     u8 ssid_len;       // 0x70
     u8 unk6;           // 0x71
-    char ssid[33];     // 0x72
-    char unk7[23];     // 0x93
+    char ssid[32];     // 0x72
+    char unk7[24];     // 0x93
     char unk8[10];     // 0xaa
     s32 unk9;          // 0xb4
     s32 unk10;         // 0xb8
