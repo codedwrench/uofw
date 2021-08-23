@@ -83,6 +83,12 @@ struct unk_struct2 {
     s32 unk11;         // 0xbc
 };
 
+struct unk_struct3 {
+    s32 unk;  // 0x0
+    s32 unk2; // 0x4
+    s32 unk3; // 0x8
+};
+
 typedef void(*sceNetAdhocctlHandler)(s32 flag, s32 err, void *unk);
 
 struct AdhocHandler {

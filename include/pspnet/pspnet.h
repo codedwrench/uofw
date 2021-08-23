@@ -18,7 +18,7 @@ struct ScanData {
     unsigned short rssi;              // 0x4a - Percentage 0-100%                      V- Counter
     unsigned char  gameModeData[18];  // 0x4c - First byte is 2 on gamemode data [ 02 05 02 0f 08 ]
                                       //        Third byte seems to be player count
-} __attribute__((packed));
+};
 
 struct ScanParams {
     s32 type;          // 0x0  Type, this parameter controls what type of networks are shown
@@ -30,7 +30,7 @@ struct ScanParams {
     s32 unk5;          // 0x40
     s32 min_strength;  // 0x44
     s32 max_strength;  // 0x48
-} __attribute__((packed));
+};
 
 /**
 * uofw/include/pspnet/pspnet.h
@@ -91,12 +91,12 @@ s32 sceNetConfigSetIfEventFlag(const char *name, SceUID eventFlags, u32 bitMask)
  * Seems to have something to do with wifi scanning.
  * @param name Name of the interface.
  * @param scanParams Tells the library how it should scan, with what filters and such.
- * @param size Maximum size of the scandata.
+ * @param size Size of the scandata.
  * @param scanData Where the data from the scan is stored.
  * @param unk4 Unknown Seems to be set to 0.
  * @return 0 if successful.
  */
-s32 sceNet_lib_0x7BA3ED91(const char *name, struct ScanParams* scanParams, s32 size, struct ScanData* scanData, u32* unk4);
+s32 sceNet_lib_0x7BA3ED91(const char *name, struct ScanParams* scanParams, s32* size, struct ScanData* scanData, u32* unk4);
 
 /**
  * Unknown function.

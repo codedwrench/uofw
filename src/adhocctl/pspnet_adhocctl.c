@@ -37,12 +37,12 @@ struct AdhocHandler *g_Unk4[4]; // 0x8A0
 
 struct AdhocHandler *g_Unk5[4]; // 0x8E0
 
-unsigned char g_Unk6[36]; // 0x920
+struct unk_struct3 g_Unk6[3]; // 0x920
 s32 g_Unk7; // 0x944
 
 // 0x00 = next?
 // 0x0a = channel
-struct ScanData g_ScanBuffer[32]; // 0xd48
+struct ScanData g_ScanBuffer[32]; // 0xd48 = 3072 bytes
 
 const char g_WifiAdapter[] = "wifi";
 const char g_DefSSIDPrefix[] = "PSP";
@@ -802,7 +802,8 @@ s32 ScanAndConnect(struct unk_struct *unpackedArgs) {
 
                                 unk2 = 0;
 
-                                ret = sceNet_lib_0x7BA3ED91(g_WifiAdapter, &params, unpackedArgs->unk2, unpackedArgs->unk7, &unk2);
+                                ret = sceNet_lib_0x7BA3ED91(g_WifiAdapter, &params, &unpackedArgs->unk2,
+                                                            (struct ScanData*) unpackedArgs->unk7, &unk2);
                                 tmp = WaitEventDeviceUpAndConnect(unpackedArgs);
                                 if ((tmp << 4) >> 0x14 == SCE_ERROR_FACILITY_NETWORK) {
                                     ret = tmp;
@@ -1071,7 +1072,7 @@ int FUN_000050c8(struct unk_struct2 *param_1, char *channel, char *unk)
     bufferLen = 3072;
     sceKernelMemset(g_ScanBuffer, 0, bufferLen);
     unk2 = 0;
-    ret = sceNet_lib_0x7BA3ED91(g_WifiAdapter, &params, bufferLen, g_ScanBuffer, &unk2);
+    ret = sceNet_lib_0x7BA3ED91(g_WifiAdapter, &params, &bufferLen, g_ScanBuffer, &unk2);
     if (ret >= 0) {
         sceKernelMemset(g_Unk6,0, (sizeof(g_Unk6)));
         if ((bufferLen != 0) && ((int) g_ScanBuffer != 0)) {
@@ -1108,7 +1109,24 @@ int FUN_000050c8(struct unk_struct2 *param_1, char *channel, char *unk)
                                 if (game3 + (game4 * (playerCount - 1)) < 0x100) {
                                     if (pScanData->gameModeData[2] != 0) {
                                         while(1) {
-                                            *(int*)(g_Unk6 + (3 * channelIdx) + 2) |= 1 << ((game3 + (game4 * tmp) - 15) / 8);
+                                            //          Example:
+                                            //          15 + (    8 *   2) - 15)
+                                            // a4 = (game3 + (game4 * tmp) - 15)
+                                            // t4 = 0x920 + (channelIndex * 12)
+                                            // t7 = 1
+                                            // sra        a0,a4,31
+                                            // srl        t9,a0,29
+                                            // addu       t8,a4,t9 = (game3 + (game4 * tmp) - 15) +
+                                            //                       (game3 + (game4 * tmp) - 15) >> 31 >> 29
+                                            // lw         t9,0x8(t4)
+                                            // sra        s2,t8,3 = (game3 + (game4 * tmp) - 15) +
+                                            //                      ((game3 + (game4 * tmp) - 15) >> 31 >> 29) / 8
+                                            // sllv       a0,t7,s2 = 1 << (game3 + (game4 * tmp) - 15) +
+                                            //                            ((game3 + (game4 * tmp) - 15) >> 31 >> 29) / 8
+                                            // or         v0,t9,a0 = or result with 0x934
+                                            g_Unk6[(3 * channelIdx)].unk3 |= 1 <<  ((game3 + (game4 * tmp) - 15) +
+                                                                                       (((game3 + (game4 * tmp) - 15)
+                                                                                       >> 31) >> 29) / 8);
                                             tmp++;
                                             playerCount = pScanData->gameModeData[2];
                                             unk6Offset = 3 * channelIdx;
