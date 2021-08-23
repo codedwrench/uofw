@@ -15,9 +15,13 @@ struct ScanData {
     unsigned short atim;              // 0x40
     unsigned short capabilities;      // 0x42
     char rate[8];                     // 0x44 - Matches wireshark rates
-    unsigned short rssi;              // 0x4a - Percentage 0-100%                      V- Counter
-    unsigned char  gameModeData[18];  // 0x4c - First byte is 2 on gamemode data [ 02 05 02 0f 08 ]
-                                      //        Third byte seems to be player count
+    unsigned short rssi;              // 0x4a - Percentage 0-100%
+    unsigned char gameModeData[18];   // 0x4c - First byte is 2 on gamemode data [ 02 05 02 0f 08 ]
+                                      // Gamemode data type assumption: [0] : Gamemode type
+                                      //                                [1] : Counter
+                                      //                                [2] : Amount of players
+                                      //                                [3] : Unknown
+                                      //                                [4] : Unknown
 };
 
 struct ScanParams {

@@ -85,7 +85,7 @@ struct unk_struct2 {
 
 struct unk_struct3 {
     s32 unk;  // 0x0
-    s32 unk2; // 0x4
+    u32 unk2; // 0x4 amount of players?
     s32 unk3; // 0x8
 };
 
