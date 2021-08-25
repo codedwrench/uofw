@@ -74,11 +74,13 @@ struct unk_struct2 {
     u8 ssid_len;       // 0x70
     u8 unk6;           // 0x71
     char ssid[32];     // 0x72
-    char unk7[24];     // 0x93
-    char unk8[10];     // 0xaa
-    s32 unk9;          // 0xb4
-    s32 unk10;         // 0xb8
-    s32 unk11;         // 0xbc
+    char unk7[8];      // 0x92
+    s16 unk8;          // 0x9a
+    s32 unk9;          // 0x9c
+    s32 unk10;         // 0xa0
+    s16 unk11;         // 0xb2
+    s32 unk12;         // 0xb4
+    s32 unk13;         // 0xb8
 };
 
 struct unk_struct3 {
