@@ -36,6 +36,8 @@ struct ProductStruct {
     char product[9]; // Product Id, e.g. UCUS98612
 };
 
+typedef char MacAddress[6];
+
 // This matches wireshark capabilities (the first 2 bytes of it)
 enum CapabilityMasks {
     CAPABILITY_ESS             = 0x1,
@@ -67,13 +69,8 @@ struct unk_struct {
 
 // Gamemode stuff?
 struct unk_struct2 {
-    s32 unk;           // 0x00 (an amount of unk2's?) // 2
-    char srcMac[6];    // 0x04
-    char destMac[6];   // 0x0a
-    char unk3[16];     // 0x10
-    s32 eventFlagBits; // 0x20
-    char unk4[64];     // 0x24
-    char unk5[12];     // 0x64
+    s32 amountOfPlayers;           // 0x00 (an amount of players) // 2
+    MacAddress playerMacs[18];     // 0x04 starts with host mac
     u8 ssid_len;       // 0x70
     u8 unk6;           // 0x71
     char ssid[32];     // 0x72

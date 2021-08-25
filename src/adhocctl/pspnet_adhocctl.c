@@ -30,7 +30,7 @@ char g_SSIDPrefix[4]; // 0x4
 
 struct unk_struct g_Unk; // 0x8
 
-struct unk_struct2 g_Unk2; // 0x7E0
+struct unk_struct2 g_Unk2; // 0x7E0 // 0x9E642F0
 
 // Vars at: [((fptr) 0x4), (0xC)] * (i * 0x10)
 struct AdhocHandler *g_Unk4[4]; // 0x8A0
@@ -1158,7 +1158,7 @@ int FUN_000050c8(struct unk_struct2 *param_1, char *channel, char *unk)
             if (adhocChannel != 11 && adhocChannel != 6 && adhocChannel != 1) {
                 adhocChannel = 0;
             }
-            channelIdx = param_1->unk;
+            channelIdx = param_1->amountOfPlayers;
 
             i = 0;
             if (channelIdx >= 0) {
@@ -1191,14 +1191,14 @@ int FUN_000050c8(struct unk_struct2 *param_1, char *channel, char *unk)
                 }
 
                 tmp = g_Unk6[(3 * channelIdx)].unk2;
-                if ((tmp >= 8) || (tmp + param_1->unk >= 17)) {
+                if ((tmp >= 8) || (tmp + param_1->amountOfPlayers >= 17)) {
                     return SCE_ERROR_NET_ADHOCCTL_CHANNEL_NOT_AVAILABLE;
                 }
 
                 i = 0;
-                if (param_1->unk <= 29) {
+                if (param_1->amountOfPlayers <= 29) {
                     tmp = channels;
-                    while(i <= (29 - param_1->unk)) {
+                    while(i <= (29 - param_1->amountOfPlayers)) {
                         if (((g_Unk6[(3 * channelIdx)].unk2) & tmp) == 0) {
                             break;
                         }
@@ -1207,7 +1207,7 @@ int FUN_000050c8(struct unk_struct2 *param_1, char *channel, char *unk)
                     }
                 }
 
-                if (i <= param_1->unk - 29) {
+                if (i <= param_1->amountOfPlayers - 29) {
                     g_Unk6[3 * channelIdx].unk = 1;
                     continue;
                 }
