@@ -124,4 +124,23 @@ s32 sceNet_lib_0xD5B64E37(const char *name, const char *ssid, u32 ssidLen, u32 c
  */
 s32 sceNet_lib_0xDA02F383(const char* name, s32* unk);
 
+/**
+ * Unknown function.
+ *
+ *
+ * @param name Name of the interface.
+ * @param unk2 A char array.
+ * @return result of ioctl 0x401469d3 (0x4000000 = DIRECTION_OUT)
+ */
+s32 sceNet_lib_0xB20F84F8(const char* name, char* unk2);
+
+/**
+ * Unknown function.
+ *
+ * @param name Name of the interface.
+ * @param unk2 A char array.
+ * @return result of ioctl 0x801469d2 (0x8000000 = DIRECTION_IN)
+ */
+s32 sceNet_lib_0xAFA11338(const char* name, char* unk2);
+
 #endif /* PSPNET_H */

@@ -15,6 +15,7 @@ See the file COPYING for copying permission.
 #include <threadman_kernel.h>
 #include <usersystemlib_kernel.h>
 #include <utility/utility_sysparam.h>
+#include <wlan.h>
 
 /**
  * uofw/src/net/pspnet_adhocctl.c
@@ -74,6 +75,10 @@ void DeleteLwMutex();
 
 s32 GetChannelAndSSID(struct unk_struct *unpackedArgs, char *ssid, u32 *channel);
 
+int GameModeParseBeaconFrame(struct unk_struct2 *param_1, char *channel, char *unk);
+
+s32 FUN_000054d8(char param_1);
+
 /**
  * Builds the SSID to be used to make the connection.
  *
@@ -98,6 +103,8 @@ s32 StartAuthAndThread(s32 stackSize, s32 priority, struct ProductStruct *produc
 
 s32 ThreadFunc(SceSize args, void *argp);
 
+// Entry:
+// 0x9E5D300
 s32 sceNetAdhocctlInit(s32 stackSize, s32 priority, struct ProductStruct *product) {
     u32 i = 0;
     s32 errorCode = 0;
@@ -416,7 +423,7 @@ s32 InitAdhoc(struct unk_struct *unpackedArgs) {
                 ret = sceNet_lib_0xD5B64E37(g_SSIDPrefix, ssid, ret, channel);
 
                 if ((((WaitEventDeviceUpAndConnect(unpackedArgs) << 4) >> 0x14) !=
-                    SCE_ERROR_FACILITY_NETWORK)
+                     SCE_ERROR_FACILITY_NETWORK)
                     || (ret < 0)) { // if sceNet_lib_0xD5B64E37 failed
                     err = 1;
                 } else {
@@ -462,30 +469,30 @@ s32 InitAdhoc(struct unk_struct *unpackedArgs) {
     return ret;
 }
 
-int MemsetAndBuildGameModeSSID(struct unk_struct *unpackedArgs, char* ssid) {
+int MemsetAndBuildGameModeSSID(struct unk_struct *unpackedArgs, char *ssid) {
     sceKernelMemset(ssid, 0, 33);
     return BuildSSID(unpackedArgs, ssid, 'G', unpackedArgs->ssidSuffix);
 }
 
 
 // CreateEnterGameMode?
-uint FUN_00003f00(struct unk_struct *unpackedArgs, struct unk_struct2* unk)
-{
+uint FUN_00003f00(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeData) {
     s32 ret;
+    s32 tmp;
+    char channel;
+    s32 flag;
+    char unk2;
     int iVar1;
     uint uVar2;
     uint uVar3;
-    s32 unk2;
+    s32 unk;
     SceInt64 systemTime;
     undefined8 uVar5;
-    undefined in_stack_fffffe60;
-    undefined in_stack_fffffe61;
     char ssid[33];
-    char *in_stack_fffffe74;
-    undefined auStack352 [6];
+    undefined auStack352[6];
     undefined local_15a;
     undefined local_159;
-    undefined auStack344 [32];
+    undefined auStack344[32];
     undefined4 local_138;
     uint local_134;
     undefined2 local_122;
@@ -494,96 +501,104 @@ uint FUN_00003f00(struct unk_struct *unpackedArgs, struct unk_struct2* unk)
     undefined4 local_e8;
     undefined4 local_e4;
     undefined4 local_e0;
-    undefined auStack208 [144];
+    undefined auStack208[144];
     int local_40;
-    undefined4 local_3c [3];
+    undefined4 local_3c[3];
 
     ret = (s32) SCE_ERROR_NET_ADHOCCTL_ALREADY_CONNECTED;
     if (unpackedArgs->connectionState == 0) {
         ret = (s32) SCE_ERROR_NET_ADHOCCTL_WLAN_SWITCH_DISABLED;
         if (sceWlanGetSwitchState() != 0) {
             systemTime = sceKernelGetSystemTimeWide();
-            ret = (s32)(systemTime >> 0x20);
+            ret = (s32) (systemTime >> 0x20);
             g_Unk7 = -1;
-            unk2 = unk->unk9;
-            while (unk2 == 0) {
+            unk = gameModeData->unk15;
+            while (unk == 0) {
                 local_40 = 0;
                 iVar1 = local_40;
                 LAB_00003fcc:
                 local_40 = iVar1;
-                unk2 = sceWlanDevAttach();
-                if (unk2 == 0 || unk2 == (s32) SCE_ERROR_NET_WLAN_ALREADY_ATTACHED) {
+                unk = sceWlanDevAttach();
+                if (unk == 0 || unk == (s32) SCE_ERROR_NET_WLAN_ALREADY_ATTACHED) {
                     unpackedArgs->unk5 = unpackedArgs->unk5 & 0xc0000001;
 
-                    ret = sceNetConfigUpInterface(g_WifiAdapter);
+                    ret = sceNetConfigUpInterface(g_WifiAdapter4);
                     if (ret >= 0) {
-                        ret = sceNetConfigSetIfEventFlag(g_WifiAdapter,
+                        ret = sceNetConfigSetIfEventFlag(g_WifiAdapter4,
                                                          unpackedArgs->eventFlags,
                                                          SCE_NET_ADHOCCTL_DEVICE_UP);
 
                         if (ret >= 0) {
                             ret = (s32) SCE_ERROR_NET_ADHOCCTL_WLAN_SWITCH_DISABLED;
                             if (sceWlanGetSwitchState() != 0) {
-                                ret = unk->unk10;
-                                if ((ret & 1) == 0) {
+                                flag = gameModeData->unk16;
+                                if ((flag & 1) == 0) {
                                     sceKernelMemset(&ssid, 0, (sizeof(ssid)));
-                                    ret = MemsetAndBuildGameModeSSID(unpackedArgs, ssid);
-                                    if (ret >= 0) {
-                                        unk->ssid_len = (short) ret;
-                                        sceKernelMemcpy(unk->ssid, &ssid, ret & 0xff);
-                                        uVar3 = FUN_000050c8(unk, &stack0xfffffe60, &stack0xfffffe61);
-                                        unk2 = WaitEventDeviceUpAndConnect(unpackedArgs);
-                                        if ((unk2 << 4) >> 0x14 == SCE_ERROR_FACILITY_NETWORK) goto LAB_0000451c;
+                                    tmp = MemsetAndBuildGameModeSSID(unpackedArgs, ssid);
+                                    if (tmp >= 0) {
+                                        gameModeData->ssid_len = (short) tmp;
+                                        sceKernelMemcpy(gameModeData->ssid, &ssid, gameModeData->ssid_len);
+                                        ret = GameModeParseBeaconFrame(gameModeData, &channel, &unk2);
 
-                                        if (-1 < (int)uVar3) {
-                                            uVar3 = unk->unk10;
-                                            unk->unk8 = in_stack_fffffe61;
-                                            unk->unk6 = in_stack_fffffe60;
-                                            goto LAB_00004078;
+                                        tmp = WaitEventDeviceUpAndConnect(unpackedArgs);
+                                        // Check if we got a network error
+                                        if ((tmp << 4) >> 0x14 == SCE_ERROR_FACILITY_NETWORK) {
+                                            ret = tmp;
+                                            if (ret >= 0) {
+                                                return ret;
+                                            }
+                                        } else if (ret >= 0) {
+                                            ret = gameModeData->unk16;
+                                            gameModeData->unk12 = unk2;
+                                            gameModeData->channel = channel;
                                         }
                                     }
                                 }
-                                else {
-                                    LAB_00004078:
-                                    if (((uVar3 & 2) == 0) ||
-                                    ((uVar3 = FUN_000054d8(4), -1 < (int)uVar3 &&
-                                    (uRam00000944 = uVar3, uVar3 = sceWlanDrv_lib_0x5BAA1FE5(1), -1 < (int)uVar3
-                                    /* WARNING: Read-only address (ram,0x00000944) is written */)))) {
-                                        sceKernelMemset(auStack352,0,0x70);
-                                        local_159 = *(undefined *)(unk + 0x70);
-                                        sceKernelMemcpy(auStack344, unk + 0x72, local_159);
-                                        local_15a = *(undefined *)(unk + 0x71);
-                                        local_134 = (uint)*(ushort *)(unk + 0xb2);
-                                        local_138 = 2;
-                                        local_122 = 0x22;
-                                        local_3c[0] = 0;
-                                        uVar3 = sceNet_lib_0x03164B12(&DAT_00006564,auStack352,local_3c);
-                                        unk2 = FUN_00003cf8(unpackedArgs);
-                                        if ((unk2 << 4) >> 0x14 == 0x41) {
-                                            LAB_0000451c:
-                                            uVar3 = unk2;
-                                            if (-1 < (int)unk2) {
-                                                return unk2;
-                                            }
-                                        }
-                                        else {
-                                            if ((((-1 < (int)uVar3) && (uVar3 = FUN_000017b4(unpackedArgs), -1 < (int)uVar3)) &&
-                                            (uVar3 = FUN_00003cf8(unpackedArgs), -1 < (int)uVar3)) &&
-                                            ((uVar3 = sceUtilityGetSystemParamString(1,auStack208,0x80), -1 < (int)uVar3
-                                            && (uVar3 = FUN_00003cf8(unpackedArgs), -1 < (int)uVar3)))) {
-                                                local_f0 = 1000000;
-                                                local_ec = 500000;
-                                                local_e8 = 5;
-                                                local_e4 = 30000000;
-                                                local_e0 = 300000000;
-                                                uVar3 = sceNetAdhocAuth_lib_0x89F2A732
-                                                        ("wlan", 0x30, 0x2000, (int)&local_f0, ssid,
-                                                         in_stack_fffffe74);
-                                                if (-1 < (int)uVar3) {
-                                                    uRam00000948 = 1;
-                                                    /* WARNING: Read-only address (ram,0x00000948) is written */
-                                                    /* WARNING: Bad instruction - Truncating control flow here */
-                                                    halt_baddata();
+
+                                if ((ret >= 0) || ((flag & 2) == 0)) {
+                                    ret = FUN_000054d8(4);
+                                    if (ret >= 0) {
+                                        g_Unk7 = ret;
+                                        ret = sceWlanDrv_lib_0x5BAA1FE5(1);
+                                        if (ret >= 0) {
+                                            sceKernelMemset(auStack352, 0, 0x70);
+                                            local_159 = gameModeData->ssid_len;
+                                            sceKernelMemcpy(auStack344, gameModeData->ssid, gameModeData->ssid_len);
+                                            local_15a = gameModeData->channel;
+                                            local_134 = gameModeData->unk14;
+                                            local_138 = 2;
+                                            local_122 = 0x22;
+                                            local_3c[0] = 0;
+                                            uVar3 = sceNet_lib_0x03164B12(&g_WifiAdapter4, auStack352, local_3c);
+                                            unk = FUN_00003cf8(unpackedArgs);
+                                            if ((unk << 4) >> 0x14 == 0x41) {
+                                                LAB_0000451c:
+                                                uVar3 = unk;
+                                                if (-1 < (int) unk) {
+                                                    return unk;
+                                                }
+                                            } else {
+                                                if ((((-1 < (int) uVar3) &&
+                                                      (uVar3 = FUN_000017b4(unpackedArgs), -1 < (int) uVar3)) &&
+                                                     (uVar3 = FUN_00003cf8(unpackedArgs), -1 < (int) uVar3)) &&
+                                                    ((uVar3 = sceUtilityGetSystemParamString(1, auStack208, 0x80),
+                                                            -1 < (int) uVar3
+                                                            && (uVar3 = FUN_00003cf8(unpackedArgs), -1 <
+                                                                                                    (int) uVar3)))) {
+                                                    local_f0 = 1000000;
+                                                    local_ec = 500000;
+                                                    local_e8 = 5;
+                                                    local_e4 = 30000000;
+                                                    local_e0 = 300000000;
+                                                    uVar3 = sceNetAdhocAuth_lib_0x89F2A732
+                                                            ("wlan", 0x30, 0x2000, (int) &local_f0, ssid,
+                                                             in_stack_fffffe74);
+                                                    if (-1 < (int) uVar3) {
+                                                        uRam00000948 = 1;
+                                                        /* WARNING: Read-only address (ram,0x00000948) is written */
+                                                        /* WARNING: Bad instruction - Truncating control flow here */
+                                                        halt_baddata();
+                                                    }
                                                 }
                                             }
                                         }
@@ -592,36 +607,37 @@ uint FUN_00003f00(struct unk_struct *unpackedArgs, struct unk_struct2* unk)
                             }
                         }
                     }
+                }
 
-                    goto LAB_00004528;
-                }
-                if ((unk2 >> 0x1f & (uint)(unk2 != 0x80410d0e)) != 0) {
-                    return unk2;
-                }
-                sceKernelDelayThread(1000000);
-                unk2 = *(uint *)(unk + 0xb4);
+                goto LAB_00004528;
             }
-            uVar5 = sceKernelGetSystemTimeWide();
-            uVar2 = (uint)((ulonglong)uVar5 >> 0x20);
-            iVar1 = unk2 - (uVar2 - uVar3);
-            if ((false) || (((int)uVar5 - (int)systemTime == (uint)(uVar2 < uVar3) && (uVar2 - uVar3 < unk2))))
-                goto LAB_00003fcc;
-            uVar3 = SCE_ERROR_NET_ADHOCCTL_TIMEOUT;
-            LAB_00004528:
-            sceNetAdhocAuth_lib_0x72AAC6D3(0,0);
-            sceNetAdhocAuth_lib_0x2E6AA271();
-            sceNetConfigSetIfEventFlag(g_WifiAdapter4,0,0);
-            local_3c[0] = 0;
-            sceNet_lib_0xDA02F383(&DAT_00006564,local_3c);
-            if (((*(uint *)(unk + 0xb8) & 2) != 0) && (sceWlanDrv_lib_0x5BAA1FE5(0), true)) {
-                FUN_000054d8();
+            if ((unk >> 0x1f & (uint)(unk != 0x80410d0e)) != 0) {
+                return unk;
             }
-            sceNetConfigDownInterface(g_WifiAdapter4);
-            sceWlanDevDetach();
+            sceKernelDelayThread(1000000);
+            unk = *(uint * )(gameModeData + 0xb4);
         }
+        uVar5 = sceKernelGetSystemTimeWide();
+        uVar2 = (uint)((ulonglong) uVar5 >> 0x20);
+        iVar1 = unk - (uVar2 - uVar3);
+        if ((false) || (((int) uVar5 - (int) systemTime == (uint)(uVar2 < uVar3) && (uVar2 - uVar3 < unk))))
+            goto LAB_00003fcc;
+        uVar3 = SCE_ERROR_NET_ADHOCCTL_TIMEOUT;
+
+        LAB_00004528:
+        sceNetAdhocAuth_lib_0x72AAC6D3(0, 0);
+        sceNetAdhocAuth_lib_0x2E6AA271();
+        sceNetConfigSetIfEventFlag(g_WifiAdapter4, 0, 0);
+        local_3c[0] = 0;
+        sceNet_lib_0xDA02F383(&DAT_00006564, local_3c);
+        if (((*(uint * )(gameModeData + 0xb8) & 2) != 0) && (sceWlanDrv_lib_0x5BAA1FE5(0), true)) {
+            FUN_000054d8();
+        }
+        sceNetConfigDownInterface(g_WifiAdapter4);
+        sceWlanDevDetach();
     }
-    /* WARNING: Read-only address (ram,0x00000944) is written */
-    /* WARNING: Read-only address (ram,0x00000948) is written */
+/* WARNING: Read-only address (ram,0x00000944) is written */
+/* WARNING: Read-only address (ram,0x00000948) is written */
     return uVar3;
 }
 
@@ -807,7 +823,7 @@ s32 ScanAndConnect(struct unk_struct *unpackedArgs) {
                                 unk2 = 0;
 
                                 ret = sceNet_lib_0x7BA3ED91(g_WifiAdapter, &params, &unpackedArgs->unk2,
-                                                            (struct ScanData*) unpackedArgs->unk7, &unk2);
+                                                            (struct ScanData *) unpackedArgs->unk7, &unk2);
                                 tmp = WaitEventDeviceUpAndConnect(unpackedArgs);
                                 if ((tmp << 4) >> 0x14 == SCE_ERROR_FACILITY_NETWORK) {
                                     ret = tmp;
@@ -831,7 +847,7 @@ s32 ScanAndConnect(struct unk_struct *unpackedArgs) {
     return ret;
 }
 
-inline int WaitFlag(struct unk_struct *unpackedArgs, u32 *outBits, s32* connectionState) {
+inline int WaitFlag(struct unk_struct *unpackedArgs, u32 *outBits, s32 *connectionState) {
     u32 tmp = 0;
     while (1) {
         sceKernelWaitEventFlag(unpackedArgs->eventFlags, 0xFFF, 1, outBits, 0);
@@ -902,8 +918,7 @@ s32 ThreadFunc(SceSize args, void *argp) {
 
     while (1) {
 
-        if(WaitFlag(unpackedArgs, &outBits, &connectionState) == 0)
-        {
+        if (WaitFlag(unpackedArgs, &outBits, &connectionState) == 0) {
             return 0;
         }
 
@@ -1044,8 +1059,7 @@ s32 GetSSIDPrefix(char *ssidPrefix) {
 }
 
 // GameMode analyse beacon frame
-int FUN_000050c8(struct unk_struct2 *param_1, char *channel, char *unk)
-{
+int GameModeParseBeaconFrame(struct unk_struct2 *param_1, char *channel, char *unk) {
     s32 ret;
     s32 adhocChannel;
     char *pChannel;
@@ -1062,9 +1076,9 @@ int FUN_000050c8(struct unk_struct2 *param_1, char *channel, char *unk)
     u32 playerCount;
     unsigned char game3;
     unsigned char game4;
-    struct unk_struct3* pG_Unk6;
+    struct unk_struct3 *pG_Unk6;
 
-    sceKernelMemset(&params ,0 ,(sizeof(struct ScanParams)));
+    sceKernelMemset(&params, 0, (sizeof(struct ScanParams)));
     params.type = BSS_TYPE_INDEPENDENT;
     sceKernelMemcpy(params.channels, &g_AllChannels, 3);
     pScanData = g_ScanBuffer;
@@ -1077,7 +1091,7 @@ int FUN_000050c8(struct unk_struct2 *param_1, char *channel, char *unk)
     unk2 = 0;
     ret = sceNet_lib_0x7BA3ED91(g_WifiAdapter4, &params, &bufferLen, g_ScanBuffer, &unk2);
     if (ret >= 0) {
-        sceKernelMemset(g_Unk6,0, (sizeof(g_Unk6)));
+        sceKernelMemset(g_Unk6, 0, (sizeof(g_Unk6)));
         if ((bufferLen != 0) && ((int) g_ScanBuffer != 0)) {
             bssType = pScanData->bssType;
             while (1) {
@@ -1103,15 +1117,14 @@ int FUN_000050c8(struct unk_struct2 *param_1, char *channel, char *unk)
                             // In GameMode this byte seems to be 0x0f
                             if (game3 < 0xf) {
                                 pScanData = pScanData->next;
-                            }
-                            else {
+                            } else {
                                 playerCount = pScanData->gameModeData[2];
                                 game4 = pScanData->gameModeData[4]; // [ 08 ]
 
                                 // TODO: This is total nuts, what is this even doing
                                 if (game3 + (game4 * (playerCount - 1)) < 0x100) {
                                     if (pScanData->gameModeData[2] != 0) {
-                                        while(1) {
+                                        while (1) {
                                             //          Example:
                                             //          15 + (    8 *      2) - 15)
                                             // a4 = (game3 + (game4 * player) - 15)
@@ -1128,7 +1141,8 @@ int FUN_000050c8(struct unk_struct2 *param_1, char *channel, char *unk)
                                             //                            ((game3 + (game4 * player) - 15) >> 31 >> 29) / 8
                                             // or         v0,t9,a0 = or result with g_Unk6[(3 * channelIdx)].unk3
                                             tmp = game3 + (game4 * player);
-                                            g_Unk6[(3 * channelIdx)].unk3 |= 1 << (((tmp < 15) ? tmp - 8 : tmp - 15) >> 3);
+                                            g_Unk6[(3 * channelIdx)].unk3 |=
+                                                    1 << (((tmp < 15) ? tmp - 8 : tmp - 15) >> 3);
                                             player++;
                                             playerCount = pScanData->gameModeData[2];
                                             if (player >= playerCount) {
@@ -1169,7 +1183,7 @@ int FUN_000050c8(struct unk_struct2 *param_1, char *channel, char *unk)
                 }
             }
 
-            while(1) {
+            while (1) {
                 pG_Unk6 = &g_Unk6[0];
                 channelIdx = -1;
                 tmp = 0;
@@ -1198,7 +1212,7 @@ int FUN_000050c8(struct unk_struct2 *param_1, char *channel, char *unk)
                 i = 0;
                 if (param_1->amountOfPlayers <= 29) {
                     tmp = channels;
-                    while(i <= (29 - param_1->amountOfPlayers)) {
+                    while (i <= (29 - param_1->amountOfPlayers)) {
                         if (((g_Unk6[(3 * channelIdx)].unk2) & tmp) == 0) {
                             break;
                         }
@@ -1214,7 +1228,26 @@ int FUN_000050c8(struct unk_struct2 *param_1, char *channel, char *unk)
                 break;
             }
             *channel = g_AllChannels[channelIdx];
-            *unk = (char)((8 * i) + 15);
+            *unk = (char) ((8 * i) + 15);
+        }
+    }
+    return ret;
+}
+
+s32 FUN_000054d8(char param_1)
+{
+    s32 ret;
+    char unk[18];
+    s32 unk2;
+
+    sceKernelMemset(unk,0,24);
+    ret = sceNet_lib_0xB20F84F8(g_WifiAdapter4, unk);
+    if (ret >= 0) {
+        unk2 = (unsigned char) unk[17];
+        unk[17] = param_1;
+        ret = sceNet_lib_0xAFA11338(g_WifiAdapter4, unk);
+        if (ret >= 0) {
+            ret = unk2;
         }
     }
     return ret;

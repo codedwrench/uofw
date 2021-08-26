@@ -71,21 +71,24 @@ struct unk_struct {
 struct unk_struct2 {
     s32 amountOfPlayers;           // 0x00 (an amount of players) // 2
     MacAddress playerMacs[18];     // 0x04 starts with host mac
-    u8 ssid_len;       // 0x70
-    u8 unk6;           // 0x71
-    char ssid[32];     // 0x72
-    char unk7[8];      // 0x92
-    s16 unk8;          // 0x9a
-    s32 unk9;          // 0x9c
-    s32 unk10;         // 0xa0
-    s16 unk11;         // 0xb2
-    s32 unk12;         // 0xb4
-    s32 unk13;         // 0xb8
+    u8 ssid_len;                   // 0x70
+    u8 channel;                    // 0x71
+    char ssid[32];                 // 0x72
+    char unk7[8];                  // 0x92
+    s16 unk8;                      // 0x9a
+    s32 unk9;                      // 0x9c
+    s32 unk10;                     // 0xa0
+    char unk11[6];                 // 0xa4
+    char unk12;                    // 0xaa ((8*i)+15)?
+    char unk13[7];                 // 0xab
+    s16 unk14;                     // 0xb2
+    s32 unk15;                     // 0xb4
+    s32 unk16;                     // 0xb8 Some flag?
 };
 
 struct unk_struct3 {
     s32 unk;  // 0x0
-    u32 unk2; // 0x4 amount of players?
+    u32 unk2; // 0x4
     s32 unk3; // 0x8
 };
 
