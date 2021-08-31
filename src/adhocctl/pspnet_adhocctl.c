@@ -489,7 +489,7 @@ uint FUN_00003f00(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeD
     SceInt64 systemTime;
     undefined8 uVar5;
     char ssid[33];
-    undefined auStack352[6];
+    char unk3[112];
     undefined local_15a;
     undefined local_159;
     undefined auStack344[32];
@@ -561,7 +561,7 @@ uint FUN_00003f00(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeD
                                         g_Unk7 = ret;
                                         ret = sceWlanDrv_lib_0x5BAA1FE5(1);
                                         if (ret >= 0) {
-                                            sceKernelMemset(auStack352, 0, 0x70);
+                                            sceKernelMemset(unk3, 0, 112);
                                             local_159 = gameModeData->ssid_len;
                                             sceKernelMemcpy(auStack344, gameModeData->ssid, gameModeData->ssid_len);
                                             local_15a = gameModeData->channel;
@@ -922,8 +922,8 @@ s32 ThreadFunc(SceSize args, void *argp) {
             return 0;
         }
 
-        if ((outBits & SCE_NET_ADHOCCTL_EVENT_CONNECT) != 0) {
-            sceKernelClearEventFlag(unpackedArgs->eventFlags, ~SCE_NET_ADHOCCTL_EVENT_CONNECT);
+        if ((outBits & (1 << SCE_NET_ADHOCCTL_EVENT_CONNECT)) != 0) {
+            sceKernelClearEventFlag(unpackedArgs->eventFlags, ~(1 << SCE_NET_ADHOCCTL_EVENT_CONNECT));
             connectionState = InitAdhoc(unpackedArgs);
             if (connectionState >= 0) {
                 RunAdhocctlHandlers(SCE_NET_ADHOCCTL_EVENT_CONNECT, 0);
@@ -938,14 +938,14 @@ s32 ThreadFunc(SceSize args, void *argp) {
             }
         }
 
-        if ((outBits & SCE_NET_ADHOCCTL_EVENT_DISCONNECT) != 0) {
-            sceKernelClearEventFlag(unpackedArgs->eventFlags, ~SCE_NET_ADHOCCTL_EVENT_DISCONNECT);
+        if ((outBits & (1 << SCE_NET_ADHOCCTL_EVENT_DISCONNECT)) != 0) {
+            sceKernelClearEventFlag(unpackedArgs->eventFlags, ~(1 << SCE_NET_ADHOCCTL_EVENT_DISCONNECT));
             Disconnect(unpackedArgs);
             RunAdhocctlHandlers(SCE_NET_ADHOCCTL_EVENT_DISCONNECT, 0);
         }
 
-        if ((outBits & SCE_NET_ADHOCCTL_EVENT_SCAN) != 0) {
-            sceKernelClearEventFlag(unpackedArgs->eventFlags, ~SCE_NET_ADHOCCTL_EVENT_SCAN);
+        if ((outBits & (1 << SCE_NET_ADHOCCTL_EVENT_SCAN)) != 0) {
+            sceKernelClearEventFlag(unpackedArgs->eventFlags, ~(1 << SCE_NET_ADHOCCTL_EVENT_SCAN));
             connectionState = ScanAndConnect(unpackedArgs);
             if (connectionState >= 0) {
                 RunAdhocctlHandlers(SCE_NET_ADHOCCTL_EVENT_SCAN, 0);
