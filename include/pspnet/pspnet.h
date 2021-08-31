@@ -36,6 +36,17 @@ struct ScanParams {
     s32 max_strength;  // 0x48
 };
 
+struct unk_struct4 {
+    char unk[5];   // 0x00
+    u8 channel;    // 0x06
+    u8 ssid_len;   // 0x07
+    char ssid[32]; // 0x08
+    s32  unk2;     // 0x28
+    s32  unk3;     // 0x2c
+    char unk4[14]; // 0x30
+    s16  unk5;     // 0x3e
+};
+
 /**
 * uofw/include/pspnet/pspnet.h
 *
@@ -129,18 +140,29 @@ s32 sceNet_lib_0xDA02F383(const char* name, s32* unk);
  *
  *
  * @param name Name of the interface.
- * @param unk2 A char array.
+ * @param unk A char array.
  * @return result of ioctl 0x401469d3 (0x4000000 = DIRECTION_OUT)
  */
-s32 sceNet_lib_0xB20F84F8(const char* name, char* unk2);
+s32 sceNet_lib_0xB20F84F8(const char* name, char* unk);
 
 /**
  * Unknown function.
  *
  * @param name Name of the interface.
- * @param unk2 A char array.
+ * @param unk A char array.
  * @return result of ioctl 0x801469d2 (0x8000000 = DIRECTION_IN)
  */
-s32 sceNet_lib_0xAFA11338(const char* name, char* unk2);
+s32 sceNet_lib_0xAFA11338(const char* name, char* unk);
+
+/**
+ * Unknown function.
+ *
+ * @param name Name of the interface.
+ * @param unk Structure with ssid, channel and some other stuff.
+ * @param unk2 Unknown
+ * @return result of ioctl 0xc01869d (0xC000000 = DIRECTION_IN+OUT)
+ */
+s32 sceNet_lib_0x03164B12(const char* name, struct unk_struct4* unk, char* unk2);
+
 
 #endif /* PSPNET_H */

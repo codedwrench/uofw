@@ -481,46 +481,27 @@ uint FUN_00003f00(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeD
     s32 tmp;
     char channel;
     s32 flag;
-    char unk2;
-    int iVar1;
-    uint uVar2;
-    uint uVar3;
     s32 unk;
+    char unk2;
     SceInt64 systemTime;
-    undefined8 uVar5;
+    SceInt64 newSystemTime;
     char ssid[33];
     char unk3[112];
-    undefined local_15a;
-    undefined local_159;
-    undefined auStack344[32];
-    undefined4 local_138;
-    uint local_134;
-    undefined2 local_122;
-    undefined4 local_f0;
-    undefined4 local_ec;
-    undefined4 local_e8;
-    undefined4 local_e4;
-    undefined4 local_e0;
-    undefined auStack208[144];
-    int local_40;
-    undefined4 local_3c[3];
+    struct unk_struct4 unk4;
+    s32 unk5;
 
     ret = (s32) SCE_ERROR_NET_ADHOCCTL_ALREADY_CONNECTED;
     if (unpackedArgs->connectionState == 0) {
         ret = (s32) SCE_ERROR_NET_ADHOCCTL_WLAN_SWITCH_DISABLED;
         if (sceWlanGetSwitchState() != 0) {
             systemTime = sceKernelGetSystemTimeWide();
-            ret = (s32) (systemTime >> 0x20);
             g_Unk7 = -1;
             unk = gameModeData->unk15;
             while (unk == 0) {
-                local_40 = 0;
-                iVar1 = local_40;
-                LAB_00003fcc:
-                local_40 = iVar1;
+
                 unk = sceWlanDevAttach();
                 if (unk == 0 || unk == (s32) SCE_ERROR_NET_WLAN_ALREADY_ATTACHED) {
-                    unpackedArgs->unk5 = unpackedArgs->unk5 & 0xc0000001;
+                    unpackedArgs->unk5 &= 0xFFFFFFFD;
 
                     ret = sceNetConfigUpInterface(g_WifiAdapter4);
                     if (ret >= 0) {
@@ -562,14 +543,14 @@ uint FUN_00003f00(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeD
                                         ret = sceWlanDrv_lib_0x5BAA1FE5(1);
                                         if (ret >= 0) {
                                             sceKernelMemset(unk3, 0, 112);
-                                            local_159 = gameModeData->ssid_len;
-                                            sceKernelMemcpy(auStack344, gameModeData->ssid, gameModeData->ssid_len);
-                                            local_15a = gameModeData->channel;
-                                            local_134 = gameModeData->unk14;
-                                            local_138 = 2;
-                                            local_122 = 0x22;
-                                            local_3c[0] = 0;
-                                            uVar3 = sceNet_lib_0x03164B12(&g_WifiAdapter4, auStack352, local_3c);
+                                            unk4.ssid_len = gameModeData->ssid_len;
+                                            sceKernelMemcpy(unk4.ssid, gameModeData->ssid, gameModeData->ssid_len);
+                                            unk4.channel = gameModeData->channel;
+                                            unk4.unk3 = gameModeData->unk14;
+                                            unk4.unk2 = 2;
+                                            unk4.unk5 = 0x22;
+                                            unk5 = 0;
+                                            uVar3 = sceNet_lib_0x03164B12(g_WifiAdapter4, &unk4, (char *)&unk5);
                                             unk = FUN_00003cf8(unpackedArgs);
                                             if ((unk << 4) >> 0x14 == 0x41) {
                                                 LAB_0000451c:
@@ -611,18 +592,21 @@ uint FUN_00003f00(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeD
 
                 goto LAB_00004528;
             }
+            newSystemTime = sceKernelGetSystemTimeWide();
+
+            // TODO: Figure out if this is correct
+            if (((newSystemTime < systemTime)) ||
+                ((newSystemTime >> 32) < ret) ||
+                (((newSystemTime >> 32) - ret) >= gameModeData->unk15)) {
+                ret = SCE_ERROR_NET_ADHOCCTL_TIMEOUT;
+            }
+
             if ((unk >> 0x1f & (uint)(unk != 0x80410d0e)) != 0) {
                 return unk;
             }
             sceKernelDelayThread(1000000);
-            unk = *(uint * )(gameModeData + 0xb4);
+            unk = gameModeData->unk15;
         }
-        uVar5 = sceKernelGetSystemTimeWide();
-        uVar2 = (uint)((ulonglong) uVar5 >> 0x20);
-        iVar1 = unk - (uVar2 - uVar3);
-        if ((false) || (((int) uVar5 - (int) systemTime == (uint)(uVar2 < uVar3) && (uVar2 - uVar3 < unk))))
-            goto LAB_00003fcc;
-        uVar3 = SCE_ERROR_NET_ADHOCCTL_TIMEOUT;
 
         LAB_00004528:
         sceNetAdhocAuth_lib_0x72AAC6D3(0, 0);
