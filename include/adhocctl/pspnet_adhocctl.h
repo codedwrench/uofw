@@ -71,18 +71,18 @@ struct unk_struct {
 struct unk_struct2 {
     s32 amountOfPlayers;           // 0x00 (an amount of players) // 2
     MacAddress playerMacs[18];     // 0x04 starts with host mac
-    u8 ssid_len;                   // 0x70
-    u8 channel;                    // 0x71
-    char ssid[32];                 // 0x72
-    char unk7[8];                  // 0x92
-    s16 unk8;                      // 0x9a
-    s32 unk9;                      // 0x9c
-    s32 unk10;                     // 0xa0
-    char unk11[6];                 // 0xa4
-    char unk12;                    // 0xaa ((8*i)+15)?
-    char unk13[7];                 // 0xab
-    s16 unk14;                     // 0xb2
-    s32 unk15;                     // 0xb4
+    u8 ssid_len;                   // 0x70 - 18
+    u8 channel;                    // 0x71 - 01
+    char ssid[32];                 // 0x72 - PSP_AULES00469_G_K3JM27c
+    char unk7[8];                  // 0x92 - 10 00 BD 74 46 29 10 45
+    s16 unk8;                      // 0x9a - 70 76
+    s32 unk9;                      // 0x9c - B3 85 13 F2
+    s32 unk10;                     // 0xa0 - D3 A1 8A D2
+    char unk11[6];                 // 0xa4 - 40 00 00 00 10 00
+    char unk12;                    // 0xaa ((8*i)+15)? - 0F
+    char unk13[7];                 // 0xab - 08 00 00 01 00 00 00
+    s16 unk14;                     // 0xb2 - 0C 00
+    s32 unk15;                     // 0xb4 - 80 C3 C9 01 <-> 01C9C380 == 30000000 interrupt timer?
     s32 unk16;                     // 0xb8 Some flag?
 };
 

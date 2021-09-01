@@ -481,7 +481,7 @@ uint FUN_00003f00(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeD
     s32 tmp;
     char channel;
     s32 flag;
-    s32 unk;
+    s32 errCode;
     char unk2;
     SceInt64 systemTime;
     SceInt64 newSystemTime;
@@ -496,11 +496,10 @@ uint FUN_00003f00(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeD
         if (sceWlanGetSwitchState() != 0) {
             systemTime = sceKernelGetSystemTimeWide();
             g_Unk7 = -1;
-            unk = gameModeData->unk15;
-            while (unk == 0) {
-
-                unk = sceWlanDevAttach();
-                if (unk == 0 || unk == (s32) SCE_ERROR_NET_WLAN_ALREADY_ATTACHED) {
+            errCode = gameModeData->unk15;
+            while (errCode == 0) {
+                errCode = sceWlanDevAttach();
+                if (errCode == 0 || errCode == (s32) SCE_ERROR_NET_WLAN_ALREADY_ATTACHED) {
                     unpackedArgs->unk5 &= 0xFFFFFFFD;
 
                     ret = sceNetConfigUpInterface(g_WifiAdapter4);
@@ -551,12 +550,12 @@ uint FUN_00003f00(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeD
                                             unk4.unk5 = 0x22;
                                             unk5 = 0;
                                             uVar3 = sceNet_lib_0x03164B12(g_WifiAdapter4, &unk4, (char *)&unk5);
-                                            unk = FUN_00003cf8(unpackedArgs);
-                                            if ((unk << 4) >> 0x14 == 0x41) {
+                                            errCode = FUN_00003cf8(unpackedArgs);
+                                            if ((errCode << 4) >> 0x14 == 0x41) {
                                                 LAB_0000451c:
-                                                uVar3 = unk;
-                                                if (-1 < (int) unk) {
-                                                    return unk;
+                                                uVar3 = errCode;
+                                                if (-1 < (int) errCode) {
+                                                    return errCode;
                                                 }
                                             } else {
                                                 if ((((-1 < (int) uVar3) &&
@@ -588,9 +587,14 @@ uint FUN_00003f00(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeD
                             }
                         }
                     }
+                    goto LAB_00004528;
                 }
 
-                goto LAB_00004528;
+                if ((errCode >> 0x1f & (uint)(errCode != 0x80410d0e)) != 0) {
+                    return errCode;
+                }
+                sceKernelDelayThread(1000000);
+                errCode = gameModeData->unk15;
             }
             newSystemTime = sceKernelGetSystemTimeWide();
 
@@ -600,12 +604,6 @@ uint FUN_00003f00(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeD
                 (((newSystemTime >> 32) - ret) >= gameModeData->unk15)) {
                 ret = SCE_ERROR_NET_ADHOCCTL_TIMEOUT;
             }
-
-            if ((unk >> 0x1f & (uint)(unk != 0x80410d0e)) != 0) {
-                return unk;
-            }
-            sceKernelDelayThread(1000000);
-            unk = gameModeData->unk15;
         }
 
         LAB_00004528:
