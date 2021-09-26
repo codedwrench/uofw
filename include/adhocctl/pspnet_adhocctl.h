@@ -70,20 +70,31 @@ struct unk_struct {
 // Gamemode stuff?
 struct unk_struct2 {
     s32 amountOfPlayers;           // 0x00 (an amount of players) // 2
-    MacAddress playerMacs[18];     // 0x04 starts with host mac
+    MacAddress playerMacs[16];     // 0x04 starts with host mac
+    s32 unk;                       // 0x64
+    char unk2[2];                  // 0x68
+    char unk3;                     // 0x6a
+    char unk4;                     // 0x6b
+    char unk5[4];                  // 0x6c
     u8 ssid_len;                   // 0x70 - 18
     u8 channel;                    // 0x71 - 01
     char ssid[32];                 // 0x72 - PSP_AULES00469_G_K3JM27c
-    char unk7[8];                  // 0x92 - 10 00 BD 74 46 29 10 45
-    s16 unk8;                      // 0x9a - 70 76
-    s32 unk9;                      // 0x9c - B3 85 13 F2
-    s32 unk10;                     // 0xa0 - D3 A1 8A D2
-    char unk11[6];                 // 0xa4 - 40 00 00 00 10 00
-    char unk12;                    // 0xaa ((8*i)+15)? - 0F
-    char unk13[7];                 // 0xab - 08 00 00 01 00 00 00
-    s16 unk14;                     // 0xb2 - 0C 00
-    s32 unk15;                     // 0xb4 - 80 C3 C9 01 <-> 01C9C380 == 30000000 interrupt timer?
-    s32 unk16;                     // 0xb8 Some flag?
+    s16 unk6;                      // 0x92 - 10 00
+    s32 unk7;                      // 0x94 - BD 74 46 29
+    s16 unk8;                      // 0x96 - 10 45
+    s16 unk9;                      // 0x9a - 70 76
+    s32 unk10;                     // 0x9c - B3 85 13 F2
+    s32 unk11;                     // 0xa0 - D3 A1 8A D2
+    s16 unk12;                     // 0xa4 - 40 00
+    s32 unk13;                     // 0xa6 - 00 00 10 00
+    char unk14;                    // 0xaa ((8*i)+15)? - 0F
+    char unk15[3];                 // 0xab - 08 00 00
+    s16 unk16;                     // 0xae - 01 00
+    s16 unk17;                     // 0xb0 - 00 00
+    s16 unk18;                     // 0xb2 - 0C 00
+    u32 unk19;                     // 0xb4 - 80 C3 C9 01 <-> 01C9C380 == 30000000 interrupt timer?
+    s32 unk20;                     // 0xb8 Some flag?
+    s32 unk21;                     // ??
 };
 
 struct unk_struct3 {

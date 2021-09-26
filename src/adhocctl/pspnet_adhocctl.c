@@ -45,7 +45,7 @@ s32 g_Unk7; // 0x944
 // 0x0a = channel
 struct ScanData g_ScanBuffer[32]; // 0xd48 = 3072 bytes
 
-                                                         // 0x6418 - Debug ADHOCTYPE warning
+// 0x6418 - Debug ADHOCTYPE warning
 const char g_AdhocRegString[] = "/CONFIG/NETWORK/ADHOC"; // 0x650c
 const char g_SSIDPrefixRegKey[] = "ssid_prefix";         // 0x6524
 const char g_WifiAdapter[] = "wlan";                     // 0x6534
@@ -474,153 +474,82 @@ int MemsetAndBuildGameModeSSID(struct unk_struct *unpackedArgs, char *ssid) {
     return BuildSSID(unpackedArgs, ssid, 'G', unpackedArgs->ssidSuffix);
 }
 
-
 // CreateEnterGameMode?
 uint FUN_00003f00(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeData) {
     s32 ret;
     s32 tmp;
     char channel;
     s32 flag;
-    s32 errCode;
     char unk2;
-    SceInt64 systemTime;
-    SceInt64 newSystemTime;
+    SceUInt64 firstSystemTime;
+    SceUInt64 secondSystemTime;
+    SceUInt64 timeDelta;
     char ssid[33];
     char unk3[112];
     struct unk_struct4 unk4;
     s32 unk5;
+    u32 unk19;
+    u32 unk19MinusTimeDelta;
+    u32 uVar7;
+    s32 err = 0;
 
-    ret = (s32) SCE_ERROR_NET_ADHOCCTL_ALREADY_CONNECTED;
-    if (unpackedArgs->connectionState == 0) {
-        ret = (s32) SCE_ERROR_NET_ADHOCCTL_WLAN_SWITCH_DISABLED;
-        if (sceWlanGetSwitchState() != 0) {
-            systemTime = sceKernelGetSystemTimeWide();
-            g_Unk7 = -1;
-            errCode = gameModeData->unk15;
-            while (errCode == 0) {
-                errCode = sceWlanDevAttach();
-                if (errCode == 0 || errCode == (s32) SCE_ERROR_NET_WLAN_ALREADY_ATTACHED) {
-                    unpackedArgs->unk5 &= 0xFFFFFFFD;
-
-                    ret = sceNetConfigUpInterface(g_WifiAdapter4);
-                    if (ret >= 0) {
-                        ret = sceNetConfigSetIfEventFlag(g_WifiAdapter4,
-                                                         unpackedArgs->eventFlags,
-                                                         SCE_NET_ADHOCCTL_DEVICE_UP);
-
-                        if (ret >= 0) {
-                            ret = (s32) SCE_ERROR_NET_ADHOCCTL_WLAN_SWITCH_DISABLED;
-                            if (sceWlanGetSwitchState() != 0) {
-                                flag = gameModeData->unk16;
-                                if ((flag & 1) == 0) {
-                                    sceKernelMemset(&ssid, 0, (sizeof(ssid)));
-                                    tmp = MemsetAndBuildGameModeSSID(unpackedArgs, ssid);
-                                    if (tmp >= 0) {
-                                        gameModeData->ssid_len = (short) tmp;
-                                        sceKernelMemcpy(gameModeData->ssid, &ssid, gameModeData->ssid_len);
-                                        ret = GameModeParseBeaconFrame(gameModeData, &channel, &unk2);
-
-                                        tmp = WaitEventDeviceUpAndConnect(unpackedArgs);
-                                        // Check if we got a network error
-                                        if ((tmp << 4) >> 0x14 == SCE_ERROR_FACILITY_NETWORK) {
-                                            ret = tmp;
-                                            if (ret >= 0) {
-                                                return ret;
-                                            }
-                                        } else if (ret >= 0) {
-                                            ret = gameModeData->unk16;
-                                            gameModeData->unk12 = unk2;
-                                            gameModeData->channel = channel;
-                                        }
-                                    }
-                                }
-
-                                if ((ret >= 0) || ((flag & 2) == 0)) {
-                                    ret = FUN_000054d8(4);
-                                    if (ret >= 0) {
-                                        g_Unk7 = ret;
-                                        ret = sceWlanDrv_lib_0x5BAA1FE5(1);
-                                        if (ret >= 0) {
-                                            sceKernelMemset(unk3, 0, 112);
-                                            unk4.ssid_len = gameModeData->ssid_len;
-                                            sceKernelMemcpy(unk4.ssid, gameModeData->ssid, gameModeData->ssid_len);
-                                            unk4.channel = gameModeData->channel;
-                                            unk4.unk3 = gameModeData->unk14;
-                                            unk4.unk2 = 2;
-                                            unk4.unk5 = 0x22;
-                                            unk5 = 0;
-                                            uVar3 = sceNet_lib_0x03164B12(g_WifiAdapter4, &unk4, (char *)&unk5);
-                                            errCode = FUN_00003cf8(unpackedArgs);
-                                            if ((errCode << 4) >> 0x14 == 0x41) {
-                                                LAB_0000451c:
-                                                uVar3 = errCode;
-                                                if (-1 < (int) errCode) {
-                                                    return errCode;
-                                                }
-                                            } else {
-                                                if ((((-1 < (int) uVar3) &&
-                                                      (uVar3 = FUN_000017b4(unpackedArgs), -1 < (int) uVar3)) &&
-                                                     (uVar3 = FUN_00003cf8(unpackedArgs), -1 < (int) uVar3)) &&
-                                                    ((uVar3 = sceUtilityGetSystemParamString(1, auStack208, 0x80),
-                                                            -1 < (int) uVar3
-                                                            && (uVar3 = FUN_00003cf8(unpackedArgs), -1 <
-                                                                                                    (int) uVar3)))) {
-                                                    local_f0 = 1000000;
-                                                    local_ec = 500000;
-                                                    local_e8 = 5;
-                                                    local_e4 = 30000000;
-                                                    local_e0 = 300000000;
-                                                    uVar3 = sceNetAdhocAuth_lib_0x89F2A732
-                                                            ("wlan", 0x30, 0x2000, (int) &local_f0, ssid,
-                                                             in_stack_fffffe74);
-                                                    if (-1 < (int) uVar3) {
-                                                        uRam00000948 = 1;
-                                                        /* WARNING: Read-only address (ram,0x00000948) is written */
-                                                        /* WARNING: Bad instruction - Truncating control flow here */
-                                                        halt_baddata();
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    goto LAB_00004528;
-                }
-
-                if ((errCode >> 0x1f & (uint)(errCode != 0x80410d0e)) != 0) {
-                    return errCode;
-                }
-                sceKernelDelayThread(1000000);
-                errCode = gameModeData->unk15;
-            }
-            newSystemTime = sceKernelGetSystemTimeWide();
-
-            // TODO: Figure out if this is correct
-            if (((newSystemTime < systemTime)) ||
-                ((newSystemTime >> 32) < ret) ||
-                (((newSystemTime >> 32) - ret) >= gameModeData->unk15)) {
-                ret = SCE_ERROR_NET_ADHOCCTL_TIMEOUT;
-            }
-        }
-
-        LAB_00004528:
-        sceNetAdhocAuth_lib_0x72AAC6D3(0, 0);
-        sceNetAdhocAuth_lib_0x2E6AA271();
-        sceNetConfigSetIfEventFlag(g_WifiAdapter4, 0, 0);
-        local_3c[0] = 0;
-        sceNet_lib_0xDA02F383(&DAT_00006564, local_3c);
-        if (((*(uint * )(gameModeData + 0xb8) & 2) != 0) && (sceWlanDrv_lib_0x5BAA1FE5(0), true)) {
-            FUN_000054d8();
-        }
-        sceNetConfigDownInterface(g_WifiAdapter4);
-        sceWlanDevDetach();
+    if (unpackedArgs->connectionState != 0) {
+        return SCE_ERROR_NET_ADHOCCTL_ALREADY_CONNECTED;
     }
-/* WARNING: Read-only address (ram,0x00000944) is written */
-/* WARNING: Read-only address (ram,0x00000948) is written */
-    return uVar3;
+
+    if (sceWlanGetSwitchState() == 0) {
+        return SCE_ERROR_NET_ADHOCCTL_WLAN_SWITCH_DISABLED;
+    }
+
+    firstSystemTime = sceKernelGetSystemTimeWide();
+
+    g_Unk7 = -1;
+    unk19 = gameModeData->unk19;
+    while (1) {
+        if (unk19 == 0) {
+            unk19MinusTimeDelta = 0;
+        } else {
+            secondSystemTime = sceKernelGetSystemTimeWide();
+            timeDelta = secondSystemTime - firstSystemTime;
+
+            // t4 = *v0 - *s6; // currenttime_low - oldtime_low
+            // t3 = *v0 - *s6; // currenttime_low - oldtime_low
+
+            unk19MinusTimeDelta = unk19 - timeDelta;
+
+            // t6 = *v0 < *s6; // (currenttime_low < oldtime_low)
+            // Lower currenttime_high by 1 if (currenttime_low < oldtime_low)
+            // t1 = t5 - t6;  // T5 - (1 || 0)
+            // t0 = t1 < 0; // false?
+
+            // This always equates to false, don't know why it's here
+            if (((u32) (timeDelta >> 32)) < 0) {
+                a0 = ((u32) timeDelta) < gameModeData->unk19; // timedelta_low < unk19?
+                unk19 = unk19MinusTimeDelta;
+            } else if ((timeDelta > UINT32_MAX) ||
+                       (unpackedArgs->connectionState == 0)) {
+                // lui fp, 0
+                ret = SCE_ERROR_NET_ADHOCCTL_TIMEOUT;
+                a0 = 0;
+                err = 1;
+            }
+            unk19 = unk19MinusTimeDelta;
+
+            if (!err) {
+                ret = sceWlanDevAttach();
+
+                // Attaching succeeded
+                if (ret == 0 || (u32)ret == SCE_ERROR_NET_WLAN_ALREADY_ATTACHED) {
+                    break;
+                } else if ((ret < 0) && (u32)ret != SCE_ERROR_NET_WLAN_DEVICE_NOT_READY) {
+                    // Error, but not a device not ready error causes this to return sceWlanDevAttach()
+                    return ret;
+                }
+
+                sceKernelDelayThread(1000000);
+            }
+        }
+    }
 }
 
 s32 GetChannelAndSSID(struct unk_struct *unpackedArgs, char *ssid, u32 *channel) {
@@ -1216,13 +1145,12 @@ int GameModeParseBeaconFrame(struct unk_struct2 *param_1, char *channel, char *u
     return ret;
 }
 
-s32 FUN_000054d8(char param_1)
-{
+s32 FUN_000054d8(char param_1) {
     s32 ret;
     char unk[18];
     s32 unk2;
 
-    sceKernelMemset(unk,0,24);
+    sceKernelMemset(unk, 0, 24);
     ret = sceNet_lib_0xB20F84F8(g_WifiAdapter4, unk);
     if (ret >= 0) {
         unk2 = (unsigned char) unk[17];
