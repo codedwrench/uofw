@@ -474,6 +474,10 @@ int MemsetAndBuildGameModeSSID(struct unk_struct *unpackedArgs, char *ssid) {
     return BuildSSID(unpackedArgs, ssid, 'G', unpackedArgs->ssidSuffix);
 }
 
+s32 FUN_000050c8(struct unk_struct2 *gameModeData, char* channel, char* unk14) {
+
+}
+
 // CreateEnterGameMode?
 uint FUN_00003f00(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeData) {
     s32 ret;
@@ -524,32 +528,66 @@ uint FUN_00003f00(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeD
 
             // This always equates to false, don't know why it's here
             if (((u32) (timeDelta >> 32)) < 0) {
-                a0 = ((u32) timeDelta) < gameModeData->unk19; // timedelta_low < unk19?
+                // a0 = ((u32) timeDelta) < gameModeData->unk19; // timedelta_low < unk19?
                 unk19 = unk19MinusTimeDelta;
             } else if ((timeDelta > UINT32_MAX) ||
                        (unpackedArgs->connectionState == 0)) {
                 // lui fp, 0
                 ret = SCE_ERROR_NET_ADHOCCTL_TIMEOUT;
-                a0 = 0;
+                // a0 = 0;
                 err = 1;
             }
-            unk19 = unk19MinusTimeDelta;
 
             if (!err) {
+                unk19 = unk19MinusTimeDelta;
                 ret = sceWlanDevAttach();
 
                 // Attaching succeeded
-                if (ret == 0 || (u32)ret == SCE_ERROR_NET_WLAN_ALREADY_ATTACHED) {
+                if (ret == 0 || (u32) ret == SCE_ERROR_NET_WLAN_ALREADY_ATTACHED) {
                     break;
-                } else if ((ret < 0) && (u32)ret != SCE_ERROR_NET_WLAN_DEVICE_NOT_READY) {
+                } else if ((ret < 0) && (u32) ret != SCE_ERROR_NET_WLAN_DEVICE_NOT_READY) {
                     // Error, but not a device not ready error causes this to return sceWlanDevAttach()
                     return ret;
                 }
 
                 sceKernelDelayThread(1000000);
+                uVar7 = gameModeData->unk19;
             }
         }
     }
+
+    unpackedArgs->unk5 &= 0xfffffffd;
+    ret = sceNetConfigUpInterface(g_WifiAdapter4);
+    if (ret < 0) {
+        ret = sceNetConfigSetIfEventFlag(g_WifiAdapter4, unpackedArgs->eventFlags, 0x8);
+        if (ret < 0) {
+            err = 1;
+        }
+    }
+
+    if(!err) {
+        if (sceWlanGetSwitchState() == 0) {
+            ret = SCE_ERROR_NET_ADHOCCTL_WLAN_SWITCH_DISABLED;
+        } else {
+            ret = MemsetAndBuildGameModeSSID(unpackedArgs, ssid);
+            if (ret >= 0) {
+                gameModeData->ssid_len = ret;
+                sceKernelMemcpy(gameModeData->ssid, ssid, ret & 0xff);
+                ret = FUN_000050c8(gameModeData, &channel, &unk14);
+                uVar7 = WaitEventDeviceUpAndConnect(unpackedArgs);
+            } else {
+                err = 1;
+            }
+        }
+    }
+
+
+    ret = gameModeData->unk20;
+    if ((ret & 1) == 0) {
+        sceKernelMemset(ssid, 0, 33);
+    }
+
+
 }
 
 s32 GetChannelAndSSID(struct unk_struct *unpackedArgs, char *ssid, u32 *channel) {
