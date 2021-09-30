@@ -474,10 +474,6 @@ int MemsetAndBuildGameModeSSID(struct unk_struct *unpackedArgs, char *ssid) {
     return BuildSSID(unpackedArgs, ssid, 'G', unpackedArgs->ssidSuffix);
 }
 
-s32 FUN_000050c8(struct unk_struct2 *gameModeData, char* channel, char* unk14) {
-
-}
-
 // CreateEnterGameMode?
 uint FUN_00003f00(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeData) {
     s32 ret;
@@ -569,25 +565,39 @@ uint FUN_00003f00(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeD
         if (sceWlanGetSwitchState() == 0) {
             ret = SCE_ERROR_NET_ADHOCCTL_WLAN_SWITCH_DISABLED;
         } else {
-            ret = MemsetAndBuildGameModeSSID(unpackedArgs, ssid);
-            if (ret >= 0) {
-                gameModeData->ssid_len = ret;
-                sceKernelMemcpy(gameModeData->ssid, ssid, ret & 0xff);
-                ret = FUN_000050c8(gameModeData, &channel, &unk14);
-                uVar7 = WaitEventDeviceUpAndConnect(unpackedArgs);
-            } else {
-                err = 1;
+            ret = gameModeData->unk20;
+            if((ret & 1) == 0) {
+                sceKernelMemset(ssid, 0, 33);
+                ret = MemsetAndBuildGameModeSSID(unpackedArgs, ssid);
+                if (ret >= 0) {
+                    gameModeData->ssid_len = ret;
+                    sceKernelMemcpy(gameModeData->ssid, ssid, ret & 0xff);
+                    ret = GameModeParseBeaconFrame(gameModeData, &channel, &unk2);
+                    uVar7 = WaitEventDeviceUpAndConnect(unpackedArgs);
+                    // Check if we got a network error
+                    if ((uVar7 << 4) >> 0x14 != SCE_ERROR_FACILITY_NETWORK) {
+                        if (ret >= 0) {
+                            ret = gameModeData->unk20;
+                            gameModeData->unk14 = unk2;
+                            gameModeData->channel = channel;
+                        } else {
+                            err = 1;
+                        }
+                    } else {
+                        ret = uVar7;
+                        err = 1;
+                    }
+                } else {
+                    err = 1;
+                }
+            }
+            // If previous function was successful, or we got here from the get go
+            if (((err == 0) && ((ret & 1) == 0)) || ((ret & 2) == 0))
+            {
+
             }
         }
     }
-
-
-    ret = gameModeData->unk20;
-    if ((ret & 1) == 0) {
-        sceKernelMemset(ssid, 0, 33);
-    }
-
-
 }
 
 s32 GetChannelAndSSID(struct unk_struct *unpackedArgs, char *ssid, u32 *channel) {
