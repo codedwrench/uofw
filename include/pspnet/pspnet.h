@@ -24,6 +24,21 @@ struct ScanData {
                                       //                                [4] : Unknown
 };
 
+struct JoinData {
+    char bssid[6];    // 0x0
+    u8 channel;       // 0x6
+    u8 ssid_len;      // 0x7
+    char ssid[32];    // 0x8
+    s32 bssType;      // 0x28
+    u32 beaconPeriod; // 0x2c
+    u32 dtimPeriod;   // 0x30
+    u32 timeStamp;    // 0x34
+    u32 localTime;    // 0x38
+    u16 atim;         // 0x3a
+    u16 capabilities; // 0x3e
+    char unk6[48];    // 0x40
+};
+
 struct ScanParams {
     s32 type;          // 0x0  Type, this parameter controls what type of networks are shown
     char unk2[6];      // 0x4  BSSID? Setting a BSSID did not seem to have an effect
@@ -34,17 +49,6 @@ struct ScanParams {
     s32 unk5;          // 0x40
     s32 min_strength;  // 0x44
     s32 max_strength;  // 0x48
-};
-
-struct unk_struct4 {
-    char unk[5];   // 0x00
-    u8 channel;    // 0x06
-    u8 ssid_len;   // 0x07
-    char ssid[32]; // 0x08
-    s32  unk2;     // 0x28
-    s32  unk3;     // 0x2c
-    char unk4[14]; // 0x30
-    s16  unk5;     // 0x3e
 };
 
 /**
@@ -162,7 +166,7 @@ s32 sceNet_lib_0xAFA11338(const char* name, char* unk);
  * @param unk2 Unknown
  * @return result of ioctl 0xc01869d (0xC000000 = DIRECTION_IN+OUT)
  */
-s32 sceNet_lib_0x03164B12(const char* name, struct unk_struct4* unk, char* unk2);
+s32 sceNet_lib_0x03164B12(const char* name, struct JoinData* unk, char* unk2);
 
 
 #endif /* PSPNET_H */

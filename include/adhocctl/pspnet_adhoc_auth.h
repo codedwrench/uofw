@@ -23,11 +23,11 @@ s32 sceNetAdhocAuth_lib_0x2E6AA271();
  * @param priority Priority of the thread to create.
  * @param stackSize Size that the stack for the thread needs to be.
  * @param clocks Used in sceKernelSetAlarm functions as number of micro seconds till the alarm occurs.
- * @param connectionState Pointer to the current connection state in this module.
+ * @param unk
  * @param nickname The username in use on the PSP.
  * @return 0 if successful.
  */
-s32 sceNetAdhocAuthCreateStartThread(const char *name, s32 priority, s32 stackSize, s32 *clocks, s32 *connectionState,
+s32 sceNetAdhocAuthCreateStartThread(const char *name, s32 priority, s32 stackSize, s32 *clocks, s32 unk,
                                      const char *nickname);
 
 /**

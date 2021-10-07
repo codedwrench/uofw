@@ -79,6 +79,8 @@ int GameModeParseBeaconFrame(struct unk_struct2 *param_1, char *channel, char *u
 
 s32 FUN_000054d8(char param_1);
 
+s32 ScanAndConnect(struct unk_struct *unpackedArgs);
+
 /**
  * Builds the SSID to be used to make the connection.
  *
@@ -435,7 +437,7 @@ s32 InitAdhoc(struct unk_struct *unpackedArgs) {
 
                 if (!err) {
                     // Used as first arg in sceKernelSetAlarm in several places
-                    // As clock	- The number of micro seconds till the alarm occurs.
+                    // As clock	- The number of micro seconds until the alarm occurs.
                     clocks[0] = 1000000;
                     clocks[1] = 500000;
                     clocks[2] = 5;
@@ -444,7 +446,7 @@ s32 InitAdhoc(struct unk_struct *unpackedArgs) {
 
                     // Disassembler points to connectionState as being called from the global, so give as global for now.
                     ret = sceNetAdhocAuthCreateStartThread(g_SSIDPrefix, 0x30, 0x2000, clocks,
-                                                           &g_Unk.connectionState, nickname);
+                                                           0x10, nickname);
                     if (ret < 0) {
                         err = 1;
                     } else {
@@ -477,20 +479,21 @@ int MemsetAndBuildGameModeSSID(struct unk_struct *unpackedArgs, char *ssid) {
 // CreateEnterGameMode?
 uint FUN_00003f00(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeData) {
     s32 ret;
-    s32 tmp;
     char channel;
     s32 flag;
+    char *unk;
     char unk2;
     SceUInt64 firstSystemTime;
     SceUInt64 secondSystemTime;
     SceUInt64 timeDelta;
     char ssid[33];
-    char unk3[112];
-    struct unk_struct4 unk4;
+    char nickname[128];
+    s32 clocks[5];
+    struct JoinData joinData;
     s32 unk5;
     u32 unk19;
     u32 unk19MinusTimeDelta;
-    u32 uVar7;
+    s32 tmp;
     s32 err = 0;
 
     if (unpackedArgs->connectionState != 0) {
@@ -547,7 +550,7 @@ uint FUN_00003f00(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeD
                 }
 
                 sceKernelDelayThread(1000000);
-                uVar7 = gameModeData->unk19;
+                tmp = (s32) gameModeData->unk19;
             }
         }
     }
@@ -561,21 +564,21 @@ uint FUN_00003f00(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeD
         }
     }
 
-    if(!err) {
+    if (!err) {
         if (sceWlanGetSwitchState() == 0) {
             ret = SCE_ERROR_NET_ADHOCCTL_WLAN_SWITCH_DISABLED;
         } else {
             ret = gameModeData->unk20;
-            if((ret & 1) == 0) {
+            if ((ret & 1) == 0) {
                 sceKernelMemset(ssid, 0, 33);
                 ret = MemsetAndBuildGameModeSSID(unpackedArgs, ssid);
                 if (ret >= 0) {
                     gameModeData->ssid_len = ret;
                     sceKernelMemcpy(gameModeData->ssid, ssid, ret & 0xff);
                     ret = GameModeParseBeaconFrame(gameModeData, &channel, &unk2);
-                    uVar7 = WaitEventDeviceUpAndConnect(unpackedArgs);
+                    tmp = WaitEventDeviceUpAndConnect(unpackedArgs);
                     // Check if we got a network error
-                    if ((uVar7 << 4) >> 0x14 != SCE_ERROR_FACILITY_NETWORK) {
+                    if ((tmp << 4) >> 0x14 != SCE_ERROR_FACILITY_NETWORK) {
                         if (ret >= 0) {
                             ret = gameModeData->unk20;
                             gameModeData->unk14 = unk2;
@@ -584,7 +587,7 @@ uint FUN_00003f00(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeD
                             err = 1;
                         }
                     } else {
-                        ret = uVar7;
+                        ret = tmp;
                         err = 1;
                     }
                 } else {
@@ -592,9 +595,83 @@ uint FUN_00003f00(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeD
                 }
             }
             // If previous function was successful, or we got here from the get go
-            if (((err == 0) && ((ret & 1) == 0)) || ((ret & 2) == 0))
-            {
+            if (!err) {
+                if ((ret & 2) != 0) {
+                    ret = FUN_000054d8(4);
+                    if (ret >= 0) {
+                        g_Unk7 = ret;
+                        ret = sceWlanDrv_lib_0x5BAA1FE5(1);
+                        if (ret < 0) {
+                            err = 1;
+                        }
+                    } else {
+                        err = 1;
+                    }
 
+                    if (!err) {
+                        sceKernelMemset(&joinData, 0, (sizeof(struct JoinData)));
+                        joinData.ssid_len = gameModeData->ssid_len;
+                        sceKernelMemcpy(joinData.ssid, gameModeData->ssid, joinData.ssid_len);
+                        joinData.channel = gameModeData->channel;
+                        joinData.beaconPeriod = gameModeData->beaconPeriod;
+                        joinData.bssType = BSS_TYPE_INDEPENDENT;
+                        joinData.capabilities = CAPABILITY_SHORT_PREAMBLE +
+                                                CAPABILITY_IBSS;
+                        unk = 0;
+
+                        // Seems to scan for a network specifically
+                        ret = sceNet_lib_0x03164B12(g_WifiAdapter4, &joinData, unk);
+
+                        tmp = WaitEventDeviceUpAndConnect(unpackedArgs);
+                        if ((tmp << 4) >> 0x14 != SCE_ERROR_FACILITY_NETWORK) {
+                            if (ret >= 0) {
+                                ret = ScanAndConnect(unpackedArgs);
+                                // Why twice
+                                if (ret >= 0) {
+                                    WaitEventDeviceUpAndConnect(unpackedArgs);
+                                    if (ret < 0) {
+                                        err = 1;
+                                    }
+                                } else {
+                                    err = 1;
+                                }
+                            } else {
+                                err = 1;
+                            }
+                        }
+
+                        if (!err) {
+                            ret = sceUtilityGetSystemParamString(SYSTEMPARAM_STRING_NICKNAME, nickname,
+                                                                 sizeof(nickname));
+                            if (ret >= 0) {
+                                ret = WaitEventDeviceUpAndConnect(unpackedArgs);
+                                if (ret < 0) {
+                                    err = 1;
+                                }
+                            } else {
+                                err = 1;
+                            }
+
+                            if (!err) {
+                                // Used as first arg in sceKernelSetAlarm in several places
+                                // As clock	- The number of micro seconds until the alarm occurs.
+                                clocks[0] = 1000000;
+                                clocks[1] = 500000;
+                                clocks[2] = 5;
+                                clocks[3] = 30000000;
+                                clocks[4] = 300000000;
+
+                                ret = sceNetAdhocAuthCreateStartThread(g_WifiAdapter4, 0x30, 0x2000,
+                                                                       clocks, 0x10, nickname);
+                                if (ret >= 0) {
+                                    // TODO: continue
+                                } else {
+                                    err = 1;
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }

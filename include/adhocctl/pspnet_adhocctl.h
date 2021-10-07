@@ -54,11 +54,11 @@ struct unk_struct {
     SceUID eventFlags;            // 0x0
     SceUID tid;                   // 0x4
     s32 connectionState;          // 0x8
-    u32 channel;                  // 0xC
+    u32 channel;                  // 0xc
     s32 unk2;                     // 0x10 (buffer size? gets filled with 0x780 (1920))
     s32 timeout;                  // 0x14
     u32 unk3;                     // 0x18, could contain 0x80410b83
-    s32 stackSpace;               // 0x1C
+    s32 stackSpace;               // 0x1c
     u32 unk5;                     // 0x20, bitfield (& 0x2, 0x10 checked, 0xf, 0xc0000001; written)
     char ssidSuffix[8];           // 0x24
     char unk7[1920];              // 0x2c (buffer?)
@@ -91,7 +91,7 @@ struct unk_struct2 {
     char unk15[3];                 // 0xab - 08 00 00
     s16 unk16;                     // 0xae - 01 00
     s16 unk17;                     // 0xb0 - 00 00
-    s16 unk18;                     // 0xb2 - 0C 00
+    s16 beaconPeriod;              // 0xb2 - 0C 00
     u32 unk19;                     // 0xb4 - 80 C3 C9 01 <-> 01C9C380 == 30000000 interrupt timer?
     s32 unk20;                     // 0xb8 Some flag?
     s32 unk21;                     // ??
