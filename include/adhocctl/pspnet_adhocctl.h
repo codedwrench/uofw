@@ -79,7 +79,7 @@ struct unk_struct2 {
     u8 ssid_len;                   // 0x70 - 18
     u8 channel;                    // 0x71 - 01
     char ssid[32];                 // 0x72 - PSP_AULES00469_G_K3JM27c
-    s16 unk6;                      // 0x92 - 10 00
+    s16 playerDataSize;            // 0x92 - 10 00
     s32 unk7;                      // 0x94 - BD 74 46 29
     s16 unk8;                      // 0x96 - 10 45
     s16 unk9;                      // 0x9a - 70 76

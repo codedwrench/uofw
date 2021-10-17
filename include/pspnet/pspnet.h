@@ -24,19 +24,19 @@ struct ScanData {
                                       //                                [4] : Unknown
 };
 
-struct JoinData {
-    char bssid[6];    // 0x0
-    u8 channel;       // 0x6
-    u8 ssid_len;      // 0x7
-    char ssid[32];    // 0x8
-    s32 bssType;      // 0x28
-    u32 beaconPeriod; // 0x2c
-    u32 dtimPeriod;   // 0x30
-    u32 timeStamp;    // 0x34
-    u32 localTime;    // 0x38
-    u16 atim;         // 0x3a
-    u16 capabilities; // 0x3e
-    char unk6[48];    // 0x40
+struct CreateData {
+    char bssid[6];    // 0x0  02 21 31 65 41 C6 - bssid ?
+    u8 channel;       // 0x6  01
+    u8 ssid_len;      // 0x7  18
+    char ssid[32];    // 0x8  PSP_AULES00469_G_K3JM27c
+    s32 bssType;      // 0x28 02 00 00 00
+    u32 beaconPeriod; // 0x2c 0C 00 00 00
+    u32 dtimPeriod;   // 0x30 00 00 00 00
+    u32 timeStamp;    // 0x34 00 00 00 00
+    u32 localTime;    // 0x38 00 00 00 00
+    u16 atim;         // 0x3a 00 00
+    u16 capabilities; // 0x3e 22 00
+    char unk6[48];    // 0x40 00 00 .... ....
 };
 
 struct ScanParams {
@@ -166,7 +166,7 @@ s32 sceNet_lib_0xAFA11338(const char* name, char* unk);
  * @param unk2 Unknown
  * @return result of ioctl 0xc01869d (0xC000000 = DIRECTION_IN+OUT)
  */
-s32 sceNet_lib_0x03164B12(const char* name, struct JoinData* unk, char* unk2);
+s32 sceNet_lib_0x03164B12(const char* name, struct CreateData* unk, char* unk2);
 
 
 #endif /* PSPNET_H */

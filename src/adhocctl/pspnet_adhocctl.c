@@ -26,20 +26,34 @@ See the file COPYING for copying permission.
  * TODO: Figure that out
  */
 
-int g_Init = 0; // 0x0
-char g_SSIDPrefix[4]; // 0x4
+int g_Init = 0; // 0x66D0
+char g_SSIDPrefix[4]; // 0x66D4
 
-struct unk_struct g_Unk; // 0x8
+struct unk_struct g_Unk; // 0x66D8
+struct unk_struct2 g_Unk2; // 0x6EB0
 
-struct unk_struct2 g_Unk2; // 0x7E0 // 0x9E642F0
+
+struct unk_struct4 {
+    s32 unk1; // 0x0  - FF FF FF FF
+    u8  unk2; // 0x4  - 01
+    u8  unk3; // 0x5  - 01
+    u32 unk4; // 0x6  - 00 00 00 2F
+    u8  unk5; // 0xa  - 01
+    u16 playerDataSize; // 0xb  - 00 10 - Player data size
+};
+
+// Player data - dynamic size - 7E A5 76 79 - part is in unk_struct2->unk7 it seems
+// 02
+// Amount of players * 6 (MacField Size) - 00 0C
+// Mac addresses
+
+struct unk_struct4 g_Unk3; // 0x7014
 
 // Vars at: [((fptr) 0x4), (0xC)] * (i * 0x10)
 struct AdhocHandler *g_Unk4[4]; // 0x8A0
 
 struct AdhocHandler *g_Unk5[4]; // 0x8E0
-
 struct unk_struct3 g_Unk6[3]; // 0x920
-s32 g_Unk7; // 0x944
 
 // 0x00 = next?
 // 0x0a = channel
@@ -489,12 +503,13 @@ uint FUN_00003f00(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeD
     char ssid[33];
     char nickname[128];
     s32 clocks[5];
-    struct JoinData joinData;
+    struct CreateData createData;
     s32 unk5;
     u32 unk19;
     u32 unk19MinusTimeDelta;
     s32 tmp;
     s32 err = 0;
+    u32 playerDataSize;
 
     if (unpackedArgs->connectionState != 0) {
         return SCE_ERROR_NET_ADHOCCTL_ALREADY_CONNECTED;
@@ -506,7 +521,7 @@ uint FUN_00003f00(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeD
 
     firstSystemTime = sceKernelGetSystemTimeWide();
 
-    g_Unk7 = -1;
+    g_Unk3.unk1 = -1;
     unk19 = gameModeData->unk19;
     while (1) {
         if (unk19 == 0) {
@@ -595,11 +610,12 @@ uint FUN_00003f00(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeD
                 }
             }
             // If previous function was successful, or we got here from the get go
+            // Breaks here on hosting gamemode
             if (!err) {
                 if ((ret & 2) != 0) {
                     ret = FUN_000054d8(4);
                     if (ret >= 0) {
-                        g_Unk7 = ret;
+                        g_Unk3.unk1 = ret;
                         ret = sceWlanDrv_lib_0x5BAA1FE5(1);
                         if (ret < 0) {
                             err = 1;
@@ -609,18 +625,18 @@ uint FUN_00003f00(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeD
                     }
 
                     if (!err) {
-                        sceKernelMemset(&joinData, 0, (sizeof(struct JoinData)));
-                        joinData.ssid_len = gameModeData->ssid_len;
-                        sceKernelMemcpy(joinData.ssid, gameModeData->ssid, joinData.ssid_len);
-                        joinData.channel = gameModeData->channel;
-                        joinData.beaconPeriod = gameModeData->beaconPeriod;
-                        joinData.bssType = BSS_TYPE_INDEPENDENT;
-                        joinData.capabilities = CAPABILITY_SHORT_PREAMBLE +
-                                                CAPABILITY_IBSS;
+                        sceKernelMemset(&createData, 0, (sizeof(struct CreateData)));
+                        createData.ssid_len = gameModeData->ssid_len;
+                        sceKernelMemcpy(createData.ssid, gameModeData->ssid, createData.ssid_len);
+                        createData.channel = gameModeData->channel;
+                        createData.beaconPeriod = gameModeData->beaconPeriod;
+                        createData.bssType = BSS_TYPE_INDEPENDENT;
+                        createData.capabilities = CAPABILITY_SHORT_PREAMBLE +
+                                                  CAPABILITY_IBSS;
                         unk = 0;
 
-                        // Seems to scan for a network specifically
-                        ret = sceNet_lib_0x03164B12(g_WifiAdapter4, &joinData, unk);
+                        // Seems to scan for a network specifically, or set parameters to create a network?
+                        ret = sceNet_lib_0x03164B12(g_WifiAdapter4, &createData, unk);
 
                         tmp = WaitEventDeviceUpAndConnect(unpackedArgs);
                         if ((tmp << 4) >> 0x14 != SCE_ERROR_FACILITY_NETWORK) {
@@ -664,7 +680,9 @@ uint FUN_00003f00(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeD
                                 ret = sceNetAdhocAuthCreateStartThread(g_WifiAdapter4, 0x30, 0x2000,
                                                                        clocks, 0x10, nickname);
                                 if (ret >= 0) {
-                                    // TODO: continue
+                                    // datasize?
+                                    playerDataSize = gameModeData->playerDataSize + gameModeData->amountOfPlayers * 6; // 1C
+                                    g_Unk3.unk2 = 1;
                                 } else {
                                     err = 1;
                                 }
