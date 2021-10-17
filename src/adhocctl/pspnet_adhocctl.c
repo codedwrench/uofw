@@ -26,52 +26,40 @@ See the file COPYING for copying permission.
  * TODO: Figure that out
  */
 
+// 0x6418 - Debug ADHOCTYPE warning
+const char g_AdhocRegString[] = "/CONFIG/NETWORK/ADHOC"; // 0x650C
+const char g_SSIDPrefixRegKey[] = "ssid_prefix";         // 0x6524
+const char g_WifiAdapter[] = "wlan";                     // 0x6534
+const char g_SSIDSeparator = '_';                        // 0x653C
+const char g_ThreadName[] = "SceNetAdhocctl";            // 0x6540
+const char g_DefSSIDPrefix[] = "PSP";                    // 0x6550
+const char g_WifiAdapter2[] = "wlan";                    // 0x6554
+const char g_WifiAdapter3[] = "wlan";                    // 0x655C
+const char g_WifiAdapter4[] = "wlan";                    // 0x6564
+const char g_MutexName[] = "SceNetAdhocctl";             // 0x656C
+const char g_Unk9;                                       // 0x657B
+const char g_AllChannels[3] = {11, 6, 1};                // 0x657C
+
 int g_Init = 0; // 0x66D0
 char g_SSIDPrefix[4]; // 0x66D4
 
 struct unk_struct g_Unk; // 0x66D8
+
 struct unk_struct2 g_Unk2; // 0x6EB0
 
-
-struct unk_struct4 {
-    s32 unk1; // 0x0  - FF FF FF FF
-    u8  unk2; // 0x4  - 01
-    u8  unk3; // 0x5  - 01
-    u32 unk4; // 0x6  - 00 00 00 2F
-    u8  unk5; // 0xa  - 01
-    u16 playerDataSize; // 0xb  - 00 10 - Player data size
-};
-
-// Player data - dynamic size - 7E A5 76 79 - part is in unk_struct2->unk7 it seems
-// 02
-// Amount of players * 6 (MacField Size) - 00 0C
-// Mac addresses
-
-struct unk_struct4 g_Unk3; // 0x7014
-
 // Vars at: [((fptr) 0x4), (0xC)] * (i * 0x10)
-struct AdhocHandler *g_Unk4[4]; // 0x8A0
+struct AdhocHandler *g_Unk4[4]; // 0x6F70
 
-struct AdhocHandler *g_Unk5[4]; // 0x8E0
-struct unk_struct3 g_Unk6[3]; // 0x920
+struct AdhocHandler *g_Unk5[4]; // 0x6FB0
+
+// Seems to store data per channel
+struct unk_struct3 g_Unk6[3]; // 0x6FF0
+
+struct unk_struct4 g_Unk7; // 0x7014
 
 // 0x00 = next?
 // 0x0a = channel
-struct ScanData g_ScanBuffer[32]; // 0xd48 = 3072 bytes
-
-// 0x6418 - Debug ADHOCTYPE warning
-const char g_AdhocRegString[] = "/CONFIG/NETWORK/ADHOC"; // 0x650c
-const char g_SSIDPrefixRegKey[] = "ssid_prefix";         // 0x6524
-const char g_WifiAdapter[] = "wlan";                     // 0x6534
-const char g_SSIDSeparator = '_';                        // 0x653c
-const char g_ThreadName[] = "SceNetAdhocctl";            // 0x6540
-const char g_DefSSIDPrefix[] = "PSP";                    // 0x6550
-const char g_WifiAdapter2[] = "wlan";                    // 0x6554
-const char g_WifiAdapter3[] = "wlan";                    // 0x655c
-const char g_WifiAdapter4[] = "wlan";                    // 0x6564
-const char g_MutexName[] = "SceNetAdhocctl";             // 0x656c
-const char g_Unk9;                                       // 0x657b
-const char g_AllChannels[3] = {11, 6, 1};                // 0x657c
+struct ScanData g_ScanBuffer[32]; // 0x7418 = 3072 bytes
 
 s32 g_MutexInited;  // 0x1948
 SceLwMutex g_Mutex; // 0x194C
@@ -509,7 +497,7 @@ uint FUN_00003f00(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeD
     u32 unk19MinusTimeDelta;
     s32 tmp;
     s32 err = 0;
-    u32 playerDataSize;
+    u32 bufferSize;
 
     if (unpackedArgs->connectionState != 0) {
         return SCE_ERROR_NET_ADHOCCTL_ALREADY_CONNECTED;
@@ -521,7 +509,7 @@ uint FUN_00003f00(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeD
 
     firstSystemTime = sceKernelGetSystemTimeWide();
 
-    g_Unk3.unk1 = -1;
+    g_Unk7.unk1 = -1;
     unk19 = gameModeData->unk19;
     while (1) {
         if (unk19 == 0) {
@@ -615,7 +603,7 @@ uint FUN_00003f00(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeD
                 if ((ret & 2) != 0) {
                     ret = FUN_000054d8(4);
                     if (ret >= 0) {
-                        g_Unk3.unk1 = ret;
+                        g_Unk7.unk1 = ret;
                         ret = sceWlanDrv_lib_0x5BAA1FE5(1);
                         if (ret < 0) {
                             err = 1;
@@ -681,8 +669,8 @@ uint FUN_00003f00(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeD
                                                                        clocks, 0x10, nickname);
                                 if (ret >= 0) {
                                     // datasize?
-                                    playerDataSize = gameModeData->playerDataSize + gameModeData->amountOfPlayers * 6; // 1C
-                                    g_Unk3.unk2 = 1;
+                                    bufferSize = gameModeData->playerDataSize + gameModeData->amountOfPlayers * 6; // 1C
+                                    g_Unk7.unk2 = 1;
                                 } else {
                                     err = 1;
                                 }

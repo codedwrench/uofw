@@ -103,6 +103,20 @@ struct unk_struct3 {
     s32 unk3; // 0x8
 };
 
+struct unk_struct4 {
+    s32 unk1; // 0x0  - FF FF FF FF
+    u8  unk2; // 0x4  - 01
+    u8  unk3; // 0x5  - 01
+    u32 unk4; // 0x6  - 00 00 00 2F
+    u8  unk5; // 0xa  - 01
+    u16 playerDataSize; // 0xb  - 00 10 - Player data size
+    char playerDataBuffer[1015]; // Data gap
+    // Player data - dynamic size - 7E A5 76 79 - part is in unk_struct2->unk7 it seems
+    // 02
+    // Amount of players * 6 (MacField Size) - 00 0C
+    // Mac addresses
+};
+
 typedef void(*sceNetAdhocctlHandler)(s32 flag, s32 err, void *unk);
 
 struct AdhocHandler {
