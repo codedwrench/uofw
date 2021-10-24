@@ -334,7 +334,7 @@ int StartConnection(struct unk_struct *unpackedArgs, s32 *eventAddr, s32 *unk) {
             }
         } else if (event == 7) {
             if (unpackedArgs->connectionState == 1) {
-                sceNetAdhocAuth_lib_0x2E6AA271();
+                sceNetAdhocAuth_lib_2E6AA271();
                 // TODO: What does this mean?
                 unpackedArgs->unk3 = 0X80410B84;
             }
@@ -461,7 +461,7 @@ s32 InitAdhoc(struct unk_struct *unpackedArgs) {
             }
 
             if (err) {
-                sceNetAdhocAuth_lib_0x2E6AA271();
+                sceNetAdhocAuth_lib_2E6AA271();
                 sceNetConfigSetIfEventFlag(g_SSIDPrefix, 0, 0);
                 unk2 = 0;
                 sceNet_lib_0xDA02F383(g_SSIDPrefix, &unk2);
@@ -672,6 +672,7 @@ u32 CreateEnterGamemode(struct unk_struct *unpackedArgs, struct unk_struct2 *gam
     char channel;
     char *unk;
     char unk2;
+    s32 unk3;
     SceUInt64 firstSystemTime;
     SceUInt64 secondSystemTime;
     char ssid[33];
@@ -774,7 +775,7 @@ u32 CreateEnterGamemode(struct unk_struct *unpackedArgs, struct unk_struct2 *gam
                     ret = FUN_000054d8(4);
                     if (ret >= 0) {
                         g_Unk7.unk1 = ret;
-                        ret = sceWlanDrv_lib_0x5BAA1FE5(1);
+                        ret = sceWlanDrv_lib_5BAA1FE5(1);
                         if (ret < 0) {
                             err = 1;
                         }
@@ -930,7 +931,17 @@ u32 CreateEnterGamemode(struct unk_struct *unpackedArgs, struct unk_struct2 *gam
                                         ret = GameModeWaitForPlayersReJoin(gameModeData, 0, firstSystemTime, tmp,
                                                                            (char*)&g_Unk7.unk2,
                                                                            bufferSize);
-                                        if (ret < 0) {
+
+                                        if (ret >= 0) {
+                                            ret = sceNetAdhocPtpClose(tmp, 0);
+                                            if (ret >= 0) {
+                                                sceNetAdhocAuth_lib_6CE209A3();
+                                                // TODO run this through the debugger
+                                                ret = sceWlanDrv_lib_56F467CA(&unk3);
+                                            } else {
+                                                err = 1;
+                                            }
+                                        } else {
                                             sceNetAdhocPtpClose(tmp, 0);
                                         }
                                     } else {
@@ -1021,7 +1032,7 @@ s32 BuildSSID(struct unk_struct *unpackedArgs, char *ssid, char adhocSubType, ch
 void Disconnect(struct unk_struct *unpackedArgs) {
     s32 unk;
 
-    sceNetAdhocAuth_lib_0x2E6AA271();
+    sceNetAdhocAuth_lib_2E6AA271();
     sceWlanSetHostDiscover(0, 0);
     sceWlanSetWakeUp(0, 0);
     sceNetConfigSetIfEventFlag(g_WifiAdapter, 0, 0);

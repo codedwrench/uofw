@@ -92,7 +92,7 @@ struct unk_struct2 {
     s16 unk16;                     // 0xae - 01 00
     s16 unk17;                     // 0xb0 - 00 00
     s16 beaconPeriod;              // 0xb2 - 0C 00
-    u32 timeout;                     // 0xb4 - 80 C3 C9 01 <-> 01C9C380 == 30000000 interrupt timer?
+    u32 timeout;                   // 0xb4 - 80 C3 C9 01 <-> 01C9C380 == 30000000 interrupt timer?
     s32 unk20;                     // 0xb8 Some flag?
     s32 unk21;                     // ??
     s32 unk22;

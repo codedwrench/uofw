@@ -12,10 +12,16 @@ See the file COPYING for copying permission.
 s32 sceNetAdhocAuthInit();
 
 /**
- * Termination of what has been initialized with sceNetAdhocAuth_lib_89F2A732()
+ * Termination of what has been initialized with sceNetAdhocAuthCreateStartThread()
  * @return 0 if successful.
  */
-s32 sceNetAdhocAuth_lib_0x2E6AA271();
+s32 sceNetAdhocAuth_lib_2E6AA271();
+
+/**
+ * Seems to cancel some alarms using sceKernelCancelAlarm.
+ * @return 0 if successful, error code if not.
+ */
+s32 sceNetAdhocAuth_lib_6CE209A3();
 
 /**
  * Creates and starts thread in the the sceNetAdhocAuth lib. (sceNetAdhocAuth_driver_0x89F2A732)
