@@ -1,4 +1,4 @@
-MODULES=adhocctl debug audio chnnlsv clockgen codec ctrl exceptionman ge init interruptman \
+MODULES=adhoc debug audio chnnlsv clockgen codec ctrl exceptionman ge init interruptman \
 iofilemgr led libatrac3plus loadcore loadexec mediaman me_wrapper modulemgr \
 syscon sysmem systimer usersystemlib wlanfirm
 

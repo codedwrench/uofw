@@ -67,6 +67,17 @@ struct ScanParams {
 u32 sceNetStrlen(const char *str);
 
 /**
+ * Compares blocks of data.
+ *
+ * @param ptr1 First block of memory.
+ * @param ptr2 Second block of memory.
+ * @param size Number of bytes to compare.
+ *
+ * @return 0 if equal.
+ */
+s32 sceNetMemcmp(const char* ptr1, const char* ptr2, u32 size);
+
+/**
  * Brings an interface down.
  *
  * @param name Name of the interface.

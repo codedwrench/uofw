@@ -4,8 +4,9 @@ See the file COPYING for copying permission.
 
 #include <common/types.h>
 
-#include <adhocctl/pspnet_adhoc_auth.h>
-#include <adhocctl/pspnet_adhocctl.h>
+#include <adhoc/pspnet_adhoc.h>
+#include <adhoc/pspnet_adhoc_auth.h>
+#include <adhoc/pspnet_adhocctl.h>
 #include <common_imp.h>
 #include <net/psp_net_error.h>
 #include <pspnet/pspnet.h>
@@ -478,26 +479,210 @@ int MemsetAndBuildGameModeSSID(struct unk_struct *unpackedArgs, char *ssid) {
     return BuildSSID(unpackedArgs, ssid, 'G', unpackedArgs->ssidSuffix);
 }
 
+
+s32 GameModeWaitForPlayersReJoin(struct unk_struct2 *gameModeData, int not_used, SceUInt64 oldtimeStamp,
+                                 s32 sockId, const char *data, u32 dataSize) {
+    MacAddress macList[15];
+    s32 ret;
+    s32 ptpAcceptSockId;
+    s32 counter = 0;
+    SceUInt64 newTimeStamp;
+    MacAddress incomingMac;
+    MacAddress *macToTestAgainst;
+    u16 incomingPort;
+    u32 timeLeftUs;
+    s32 i;
+    s32 tmp;
+
+    not_used = 0;
+    ret = 0;
+    sceKernelMemset(macList, 0, (sizeof(MacAddress) * 15));
+
+    if (gameModeData->amountOfPlayers < 2) {
+        if ((gameModeData->unk22 < counter) && ret == (s32) SCE_ERROR_NET_ADHOC_TIMEOUT) {
+            ret = 0;
+        }
+        return ret;
+    }
+
+    while (1) {
+        if (gameModeData->timeout == 0) {
+            timeLeftUs = 0;
+        } else {
+            newTimeStamp = sceKernelGetSystemTimeWide();
+
+            if (((newTimeStamp < oldtimeStamp) ||
+                 (newTimeStamp - oldtimeStamp > UINT32_MAX) ||
+                 (newTimeStamp - oldtimeStamp >= gameModeData->timeout))) {
+                return SCE_ERROR_NET_ADHOCCTL_TIMEOUT;
+            }
+
+            timeLeftUs = gameModeData->timeout - (newTimeStamp - oldtimeStamp);
+        }
+
+        // TODO: Check what gets returned here.
+        ptpAcceptSockId = sceNetAdhocPtpAccept(sockId, (unsigned char *) incomingMac, &incomingPort, timeLeftUs, 0);
+        if (ptpAcceptSockId < 0) {
+            ret = ptpAcceptSockId;
+            if ((gameModeData->unk22 < counter) && ret == (s32) SCE_ERROR_NET_ADHOC_TIMEOUT) {
+                ret = 0;
+            }
+            return ret;
+        }
+
+        if (incomingPort == 32767) {
+            i = 1; // 1 because we skip our own mac
+            if (1 < gameModeData->amountOfPlayers) {
+                macToTestAgainst = &gameModeData->playerMacs[0];
+                while (i < gameModeData->amountOfPlayers) {
+                    macToTestAgainst += sizeof(MacAddress);
+
+                    // If we found the mac address in the expected list...
+                    if (sceNetMemcmp((const char *) macToTestAgainst, incomingMac, 6) == 0) {
+                        break;
+                    }
+                    i++;
+                }
+            }
+
+            // Failurestate
+            if (gameModeData->amountOfPlayers == i) {
+                sceNetAdhocPtpClose(ptpAcceptSockId, 0);
+
+            }
+
+            // Do this only after the first player was received.
+            // Seems that it checks any incoming macs to the list it already had to avoid duplicate macs.
+            // If the Mac is already there close the new connection
+            if (counter > 0) {
+                i = counter;
+                macToTestAgainst = macList;
+                while (i != 0) {
+                    tmp = sceNetMemcmp((const char *) macToTestAgainst, (const char *) incomingMac, 6);
+                    i--;
+                    macToTestAgainst += sizeof(MacAddress);
+                    if (tmp == 0) {
+                        ret = -1;
+                        sceNetAdhocPtpClose(ptpAcceptSockId, 0);
+                    }
+                }
+            }
+
+            if (gameModeData->timeout != 0) {
+                newTimeStamp = sceKernelGetSystemTimeWide();
+
+                if (((newTimeStamp < oldtimeStamp) ||
+                     (newTimeStamp - oldtimeStamp > UINT32_MAX) ||
+                     (newTimeStamp - oldtimeStamp >= gameModeData->timeout))) {
+                    if (ptpAcceptSockId >= 0) {
+                        sceNetAdhocPtpClose(ptpAcceptSockId, 0);
+                    }
+                    return SCE_ERROR_NET_ADHOCCTL_TIMEOUT;
+                } else {
+                    timeLeftUs = gameModeData->timeout - (newTimeStamp - oldtimeStamp);
+                }
+            } else {
+                timeLeftUs = 0;
+            }
+
+            ret = sceNetAdhocPtpSend(ptpAcceptSockId, data, &dataSize, timeLeftUs, 0);
+            if (ret >= 0) {
+                if (gameModeData->timeout != 0) {
+                    newTimeStamp = sceKernelGetSystemTimeWide();
+
+                    if (((newTimeStamp < oldtimeStamp) ||
+                         (newTimeStamp - oldtimeStamp > UINT32_MAX) ||
+                         (newTimeStamp - oldtimeStamp >= gameModeData->timeout))) {
+                        if (ptpAcceptSockId >= 0) {
+                            sceNetAdhocPtpClose(ptpAcceptSockId, 0);
+                        }
+                        return SCE_ERROR_NET_ADHOCCTL_TIMEOUT;
+                    } else {
+                        timeLeftUs = gameModeData->timeout - (newTimeStamp - oldtimeStamp);
+                    }
+                } else {
+                    timeLeftUs = 0;
+                }
+            } else {
+                if (ptpAcceptSockId >= 0) {
+                    sceNetAdhocPtpClose(ptpAcceptSockId, 0);
+                }
+
+                if ((gameModeData->unk22 < counter) && ret == (s32) SCE_ERROR_NET_ADHOC_TIMEOUT) {
+                    ret = 0;
+                }
+
+                return ret;
+            }
+
+            if (timeLeftUs >= 3000000) {
+                timeLeftUs = 3000000;
+            }
+
+            ret = sceNetAdhocPtpFlush(ptpAcceptSockId, timeLeftUs, 0);
+            if ((ret < 0) && ((timeLeftUs != 3000000) ||
+                  (ret != (s32)SCE_ERROR_NET_ADHOC_TIMEOUT &&
+                   ret != (s32)SCE_ERROR_NET_ADHOC_DISCONNECTED)))
+            {
+                if (ptpAcceptSockId >= 0) {
+                    sceNetAdhocPtpClose(ptpAcceptSockId, 0);
+                }
+
+                if ((gameModeData->unk22 < counter) && ret == (s32) SCE_ERROR_NET_ADHOC_TIMEOUT) {
+                    ret = 0;
+                }
+                return ret;
+            }
+
+            ret = sceNetAdhocPtpClose(ptpAcceptSockId, 0);
+            if (ret < 0) {
+
+                // TODO: just inline this
+                if ((gameModeData->unk22 < counter) && ret == (s32) SCE_ERROR_NET_ADHOC_TIMEOUT) {
+                    ret = 0;
+                }
+                return ret;
+            }
+
+            sceKernelMemcpy(macList + (sizeof(MacAddress) * counter), macList, 6);
+            counter++;
+        } else {
+            sceNetAdhocPtpClose(ptpAcceptSockId, 0);
+        }
+        ptpAcceptSockId = -1;
+
+        // If the counter got higher than the amount of players, stop
+        if (gameModeData->amountOfPlayers < counter) {
+            if (ptpAcceptSockId >= 0) {
+                sceNetAdhocPtpClose(ptpAcceptSockId, 0);
+            }
+
+            if ((gameModeData->unk22 < counter) && ret == (s32) SCE_ERROR_NET_ADHOC_TIMEOUT) {
+                ret = 0;
+            }
+
+            return ret;
+        }
+    }
+}
+
 // CreateEnterGameMode?
-uint FUN_00003f00(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeData) {
+u32 CreateEnterGamemode(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeData) {
     s32 ret;
     char channel;
-    s32 flag;
     char *unk;
     char unk2;
     SceUInt64 firstSystemTime;
     SceUInt64 secondSystemTime;
-    SceUInt64 timeDelta;
     char ssid[33];
     char nickname[128];
     s32 clocks[5];
     struct CreateData createData;
-    s32 unk5;
-    u32 unk19;
-    u32 unk19MinusTimeDelta;
     s32 tmp;
     s32 err = 0;
+    u32 totalSize;
     u32 bufferSize;
+    s32 i;
 
     if (unpackedArgs->connectionState != 0) {
         return SCE_ERROR_NET_ADHOCCTL_ALREADY_CONNECTED;
@@ -510,60 +695,45 @@ uint FUN_00003f00(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeD
     firstSystemTime = sceKernelGetSystemTimeWide();
 
     g_Unk7.unk1 = -1;
-    unk19 = gameModeData->unk19;
     while (1) {
-        if (unk19 == 0) {
-            unk19MinusTimeDelta = 0;
+        if (gameModeData->timeout == 0) {
         } else {
             secondSystemTime = sceKernelGetSystemTimeWide();
-            timeDelta = secondSystemTime - firstSystemTime;
 
-            // t4 = *v0 - *s6; // currenttime_low - oldtime_low
-            // t3 = *v0 - *s6; // currenttime_low - oldtime_low
+            if (((secondSystemTime < firstSystemTime) ||
+                 ((secondSystemTime - firstSystemTime) > UINT32_MAX) ||
+                 ((secondSystemTime - firstSystemTime) >= gameModeData->timeout))) {
 
-            unk19MinusTimeDelta = unk19 - timeDelta;
-
-            // t6 = *v0 < *s6; // (currenttime_low < oldtime_low)
-            // Lower currenttime_high by 1 if (currenttime_low < oldtime_low)
-            // t1 = t5 - t6;  // T5 - (1 || 0)
-            // t0 = t1 < 0; // false?
-
-            // This always equates to false, don't know why it's here
-            if (((u32) (timeDelta >> 32)) < 0) {
-                // a0 = ((u32) timeDelta) < gameModeData->unk19; // timedelta_low < unk19?
-                unk19 = unk19MinusTimeDelta;
-            } else if ((timeDelta > UINT32_MAX) ||
-                       (unpackedArgs->connectionState == 0)) {
-                // lui fp, 0
                 ret = SCE_ERROR_NET_ADHOCCTL_TIMEOUT;
-                // a0 = 0;
                 err = 1;
+                break;
+            }
+        }
+
+        if (!err) {
+            ret = sceWlanDevAttach();
+
+            // Attaching succeeded
+            if (ret == 0 || (u32) ret == SCE_ERROR_NET_WLAN_ALREADY_ATTACHED) {
+                break;
+            } else if ((ret < 0) && (u32) ret != SCE_ERROR_NET_WLAN_DEVICE_NOT_READY) {
+                // Error, but not a device not ready error causes this to return sceWlanDevAttach()
+                return ret;
             }
 
-            if (!err) {
-                unk19 = unk19MinusTimeDelta;
-                ret = sceWlanDevAttach();
-
-                // Attaching succeeded
-                if (ret == 0 || (u32) ret == SCE_ERROR_NET_WLAN_ALREADY_ATTACHED) {
-                    break;
-                } else if ((ret < 0) && (u32) ret != SCE_ERROR_NET_WLAN_DEVICE_NOT_READY) {
-                    // Error, but not a device not ready error causes this to return sceWlanDevAttach()
-                    return ret;
-                }
-
-                sceKernelDelayThread(1000000);
-                tmp = (s32) gameModeData->unk19;
-            }
+            sceKernelDelayThread(1000000);
+            tmp = (s32) gameModeData->timeout;
         }
     }
 
-    unpackedArgs->unk5 &= 0xfffffffd;
-    ret = sceNetConfigUpInterface(g_WifiAdapter4);
-    if (ret < 0) {
-        ret = sceNetConfigSetIfEventFlag(g_WifiAdapter4, unpackedArgs->eventFlags, 0x8);
+    if (!err) {
+        unpackedArgs->unk5 &= 0xfffffffd;
+        ret = sceNetConfigUpInterface(g_WifiAdapter4);
         if (ret < 0) {
-            err = 1;
+            ret = sceNetConfigSetIfEventFlag(g_WifiAdapter4, unpackedArgs->eventFlags, 0x8);
+            if (ret < 0) {
+                err = 1;
+            }
         }
     }
 
@@ -668,9 +838,105 @@ uint FUN_00003f00(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeD
                                 ret = sceNetAdhocAuthCreateStartThread(g_WifiAdapter4, 0x30, 0x2000,
                                                                        clocks, 0x10, nickname);
                                 if (ret >= 0) {
-                                    // datasize?
-                                    bufferSize = gameModeData->playerDataSize + gameModeData->amountOfPlayers * 6; // 1C
+                                    bufferSize = gameModeData->playerDataSize + gameModeData->amountOfPlayers *
+                                                                                sizeof(MacAddress);
+
+                                    // The data added under here amounts to 25 bytes
+                                    bufferSize += 25;
+
                                     g_Unk7.unk2 = 1;
+
+                                    // For some reason the size that gets put in g_Unk7.unk4 is 6 bytes lower
+                                    totalSize = bufferSize + 19;
+
+                                    g_Unk7.unk3 = 1;
+
+                                    // g_Unk7 has everything in big endian
+                                    // Swap endianness on total size
+                                    g_Unk7.unk4 = pspWsbw(totalSize);
+
+                                    // These are probably tags, TAG 1
+                                    g_Unk7.unk5 = 1;
+
+                                    g_Unk7.playerDataSize = pspWsbh(gameModeData->playerDataSize);
+                                    if (gameModeData->playerDataSize != 0) {
+                                        sceKernelMemcpy(g_Unk7.playerDataBuffer, &gameModeData->unk7,
+                                                        gameModeData->playerDataSize);
+                                    }
+
+                                    // Keep array location in tmp
+                                    tmp = g_Unk7.playerDataSize;
+
+                                    // TAG 2
+                                    g_Unk7.playerDataBuffer[tmp] = 2;
+                                    tmp++;
+
+                                    // Swap endianness here as well; this size is 2 bytes in size
+                                    *((u16 *) &g_Unk7.playerDataBuffer[tmp]) =
+                                            pspWsbh(gameModeData->amountOfPlayers * (sizeof(MacAddress)));
+
+                                    tmp += 2;
+
+                                    if (gameModeData->amountOfPlayers > 0) {
+                                        // Copy player mac addresses
+                                        for (i = 0; i < gameModeData->amountOfPlayers; i++) {
+                                            // Copy Mac Address to 3 bytes beyond the start + 6 * Amount of Addresses
+                                            // already assigned
+                                            tmp += (i * (s32) (sizeof(MacAddress)));
+                                            sceKernelMemcpy(&g_Unk7.playerDataBuffer[tmp],
+                                                            gameModeData->playerMacs[i], (sizeof(MacAddress)));
+                                        }
+                                    }
+
+                                    // TAG 3
+                                    g_Unk7.playerDataBuffer[tmp] = 3;
+                                    tmp++;
+                                    *((u16 *) &g_Unk7.playerDataBuffer[tmp]) = 0x0200;
+                                    tmp += 2;
+
+                                    // contained 40 00 in test
+                                    *((u16 *) &g_Unk7.playerDataBuffer[tmp]) = pspWsbh(gameModeData->unk12);
+                                    tmp += 2;
+
+                                    // TAG 4
+                                    g_Unk7.playerDataBuffer[tmp] = 4;
+                                    tmp++;
+                                    *((u16 *) &g_Unk7.playerDataBuffer[tmp]) = 0x0100;
+                                    tmp += 2;
+
+                                    // contained 0F in test, ((8*i)+15)
+                                    // i = 0
+                                    *((u16 *) &g_Unk7.playerDataBuffer[tmp]) = pspWsbh(gameModeData->unk14);
+                                    tmp += 2;
+
+                                    // TAG 5
+                                    g_Unk7.playerDataBuffer[tmp] = 5;
+                                    tmp++;
+                                    *((u16 *) &g_Unk7.playerDataBuffer[tmp]) = 0x0100;
+                                    tmp += 2;
+
+                                    g_Unk7.playerDataBuffer[tmp] = gameModeData->unk15[0];
+                                    tmp++;
+
+                                    // Count comes out to 97 in a test with Bomberman
+                                    // Seems it adds about 112500 microseconds of time that this can take
+                                    tmp = sceNetAdhocPtpListen
+                                            ((unsigned char *) &gameModeData->playerMacs, 32769, 0x2000, 200000,
+                                             (int) (gameModeData->timeout) / 312500 + 1,
+                                             gameModeData->amountOfPlayers - 1, 0);
+                                    if (tmp >= 0) {
+                                        // Seems to do something related to accepting PTP connections
+                                        // No idea why it uses the first system time and not the second one
+                                        ret = GameModeWaitForPlayersReJoin(gameModeData, 0, firstSystemTime, tmp,
+                                                                           (char*)&g_Unk7.unk2,
+                                                                           bufferSize);
+                                        if (ret < 0) {
+                                            sceNetAdhocPtpClose(tmp, 0);
+                                        }
+                                    } else {
+                                        ret = tmp;
+                                        err = 1;
+                                    }
                                 } else {
                                     err = 1;
                                 }
@@ -681,6 +947,7 @@ uint FUN_00003f00(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeD
             }
         }
     }
+    return ret;
 }
 
 s32 GetChannelAndSSID(struct unk_struct *unpackedArgs, char *ssid, u32 *channel) {
@@ -1004,7 +1271,7 @@ s32 ThreadFunc(SceSize args, void *argp) {
         // This seems to do something with gamemode
         if ((outBits & 0x10) != 0) {
             sceKernelClearEventFlag(unpackedArgs->eventFlags, ~0x10);
-            connectionState = FUN_00003f00(unpackedArgs, &g_Unk2);
+            connectionState = CreateEnterGamemode(unpackedArgs, &g_Unk2);
             //if (connectionState < 0) goto LAB_000038a8;
             //FUN_00002600(4, 0);
         }
@@ -1104,14 +1371,14 @@ s32 GetSSIDPrefix(char *ssidPrefix) {
 int GameModeParseBeaconFrame(struct unk_struct2 *param_1, char *channel, char *unk) {
     s32 ret;
     s32 adhocChannel;
-    char *pChannel;
+    const char *pChannel;
     struct ScanData *pScanData;
     struct ScanParams params;
     int bufferLen;
     u32 unk2;
     u32 bssType;
     s32 channelIdx;
-    u32 channels = 0;
+    u32 playerIdx = 0;
     u32 player;
     s32 i;
     u32 tmp;
@@ -1141,6 +1408,7 @@ int GameModeParseBeaconFrame(struct unk_struct2 *param_1, char *channel, char *u
                     // GameMode uses 2 as the first byte in vendor info
                     if (pScanData->gameModeData[0] == 2) {
                         channelIdx = 0;
+                        pChannel = g_AllChannels;
 
                         // This seems to be getting the channel info
                         while (channelIdx < 3) {
@@ -1165,7 +1433,8 @@ int GameModeParseBeaconFrame(struct unk_struct2 *param_1, char *channel, char *u
 
                                 // TODO: This is total nuts, what is this even doing
                                 if (game3 + (game4 * (playerCount - 1)) < 0x100) {
-                                    if (pScanData->gameModeData[2] != 0) {
+                                    player = 0;
+                                    if (playerCount != 0) {
                                         while (1) {
                                             //          Example:
                                             //          15 + (    8 *      2) - 15)
@@ -1214,14 +1483,14 @@ int GameModeParseBeaconFrame(struct unk_struct2 *param_1, char *channel, char *u
             if (adhocChannel != 11 && adhocChannel != 6 && adhocChannel != 1) {
                 adhocChannel = 0;
             }
-            channelIdx = param_1->amountOfPlayers;
+            playerCount = param_1->amountOfPlayers;
 
             i = 0;
-            if (channelIdx >= 0) {
-                while (i < channelIdx) {
+            if (playerCount > 0) {
+                while ((u32) i < playerCount) {
                     tmp = i & 0x1f;
                     i++;
-                    channels |= (1 << tmp);
+                    playerIdx |= (1 << tmp);
                 }
             }
 
@@ -1253,13 +1522,13 @@ int GameModeParseBeaconFrame(struct unk_struct2 *param_1, char *channel, char *u
 
                 i = 0;
                 if (param_1->amountOfPlayers <= 29) {
-                    tmp = channels;
+                    tmp = playerIdx;
                     while (i <= (29 - param_1->amountOfPlayers)) {
                         if (((g_Unk6[(3 * channelIdx)].unk2) & tmp) == 0) {
                             break;
                         }
                         i++;
-                        tmp = channels << (i & 0x1f);
+                        tmp = playerIdx << (i & 0x1f);
                     }
                 }
 
