@@ -672,7 +672,7 @@ u32 CreateEnterGamemode(struct unk_struct *unpackedArgs, struct unk_struct2 *gam
     char channel;
     char *unk;
     char unk2;
-    struct wlanDrv_Params *unk3 = NULL;
+    struct wlanDrv_Params unk3;
     SceUInt64 firstSystemTime;
     SceUInt64 secondSystemTime;
     char ssid[33];
@@ -939,16 +939,16 @@ u32 CreateEnterGamemode(struct unk_struct *unpackedArgs, struct unk_struct2 *gam
                                             if (ret >= 0) {
                                                 sceNetAdhocAuth_lib_6CE209A3();
                                                 // TODO run this through the debugger
-                                                ret = sceWlanDrv_lib_56F467CA(unk3);
+                                                ret = sceWlanDrv_lib_56F467CA(&unk3);
                                                 if (ret >= 0) {
-                                                    unk3->unk = gameModeData->beaconPeriod - 2;
-                                                    unk3->unk2 = 0xff;
+                                                    unk3.unk = gameModeData->beaconPeriod - 2;
+                                                    unk3.unk2 = 0xff;
                                                     if(gameModeData->beaconPeriod == 0) {
                                                         pspBreak(SCE_BREAKCODE_DIVZERO);
                                                     }
-                                                    unk3->unk3 = (1000 / gameModeData->beaconPeriod) + 1;
+                                                    unk3.unk3 = (1000 / gameModeData->beaconPeriod) + 1;
 
-                                                    ret = sceWlanDrv_lib_2D0FAE4E(unk3);
+                                                    ret = sceWlanDrv_lib_2D0FAE4E(&unk3);
                                                     tmp = WaitEventDeviceUpAndConnect(unpackedArgs);
                                                     if ((ret >= 0) && (tmp >= 0)) {
                                                         // Host mac?
