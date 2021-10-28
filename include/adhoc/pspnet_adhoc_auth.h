@@ -24,6 +24,16 @@ s32 sceNetAdhocAuth_lib_2E6AA271();
 s32 sceNetAdhocAuth_lib_6CE209A3();
 
 /**
+ * Copies unk to 0x4a8c with size playerDataSize.
+ * This ends up in memab.
+ *
+ * @param playerDataSize Size of the playerdata.
+ * @param playerData Playerdata.
+ * @return 0 if successful, error code if not.
+ */
+s32 sceNetAdhocAuth_lib_72AAC6D3(u16 playerDataSize, u32 playerData);
+
+/**
  * Creates and starts thread in the the sceNetAdhocAuth lib. (sceNetAdhocAuth_driver_0x89F2A732)
  * @param name Name of the interface.
  * @param priority Priority of the thread to create.

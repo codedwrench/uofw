@@ -17,11 +17,11 @@ struct ScanData {
     char rate[8];                     // 0x44 - Matches wireshark rates
     unsigned short rssi;              // 0x4a - Percentage 0-100%
     unsigned char gameModeData[18];   // 0x4c - First byte is 2 on gamemode data [ 02 05 02 0f 08 ]
-                                      // Gamemode data type assumption: [0] : Gamemode type
-                                      //                                [1] : Counter
-                                      //                                [2] : Amount of players
-                                      //                                [3] : Unknown
-                                      //                                [4] : Unknown
+    // Gamemode data type assumption: [0] : Gamemode type
+    //                                [1] : Counter
+    //                                [2] : Amount of players
+    //                                [3] : Unknown
+    //                                [4] : Unknown
 };
 
 struct CreateData {
@@ -75,7 +75,7 @@ u32 sceNetStrlen(const char *str);
  *
  * @return 0 if equal.
  */
-s32 sceNetMemcmp(const char* ptr1, const char* ptr2, u32 size);
+s32 sceNetMemcmp(const char *ptr1, const char *ptr2, u32 size);
 
 /**
  * Brings an interface down.
@@ -84,7 +84,7 @@ s32 sceNetMemcmp(const char* ptr1, const char* ptr2, u32 size);
  *
  * @return 0 if successful.
  */
-s32 sceNetConfigDownInterface(const char* name);
+s32 sceNetConfigDownInterface(const char *name);
 
 /**
  * Brings an interface up.
@@ -104,7 +104,7 @@ s32 sceNetConfigUpInterface(const char *name);
  *
  * @return The event?
  */
-s32 sceNetConfigGetIfEvent(const char *name, s32* eventAddr, s32* unk);
+s32 sceNetConfigGetIfEvent(const char *name, s32 *eventAddr, s32 *unk);
 
 /**
  * Sets the event flag bitmask of a device.
@@ -118,15 +118,30 @@ s32 sceNetConfigGetIfEvent(const char *name, s32* eventAddr, s32* unk);
 s32 sceNetConfigSetIfEventFlag(const char *name, SceUID eventFlags, u32 bitMask);
 
 /**
+ * Gets an event to use?
+ *
+ * @param name Name of the interface.
+ * @param unk Unknown, something gets put into here.
+ * @param macAddress Multicast address.
+ * @param unk2 Set to 0
+ *
+ * @return result of ioctl 0xC01C69E1 (0xC000000 = DIRECTION_IN+OUT)
+ */
+s32 sceNet_lib_0D633F53(const char *name, s32 *unk, MacAddress *macAddress, s32 *unk2);
+
+/**
  * Seems to have something to do with wifi scanning.
+ *
  * @param name Name of the interface.
  * @param scanParams Tells the library how it should scan, with what filters and such.
  * @param size Size of the scandata.
  * @param scanData Where the data from the scan is stored.
  * @param unk4 Unknown Seems to be set to 0.
+ *
  * @return 0 if successful.
  */
-s32 sceNet_lib_0x7BA3ED91(const char *name, struct ScanParams* scanParams, s32* size, struct ScanData* scanData, u32* unk4);
+s32 sceNet_lib_7BA3ED91(const char *name, struct ScanParams *scanParams, s32 *size, struct ScanData *scanData,
+                        u32 *unk4);
 
 /**
  * Unknown function.
@@ -136,9 +151,9 @@ s32 sceNet_lib_0x7BA3ED91(const char *name, struct ScanParams* scanParams, s32* 
  * @param ssidLen Length of the ssid.
  * @param channel Channel to be used.
  *
- * return something <0 on failure.
+ * @return something <0 on failure.
  */
-s32 sceNet_lib_0xD5B64E37(const char *name, const char *ssid, u32 ssidLen, u32 channel);
+s32 sceNet_lib_D5B64E37(const char *name, const char *ssid, u32 ssidLen, u32 channel);
 
 /**
  * Unknown function.
@@ -148,17 +163,16 @@ s32 sceNet_lib_0xD5B64E37(const char *name, const char *ssid, u32 ssidLen, u32 c
  *
  * return something <0 on failure.
  */
-s32 sceNet_lib_0xDA02F383(const char* name, s32* unk);
+s32 sceNet_lib_DA02F383(const char *name, s32 *unk);
 
 /**
  * Unknown function.
- *
  *
  * @param name Name of the interface.
  * @param unk A char array.
  * @return result of ioctl 0x401469d3 (0x4000000 = DIRECTION_OUT)
  */
-s32 sceNet_lib_0xB20F84F8(const char* name, char* unk);
+s32 sceNet_lib_B20F84F8(const char *name, char *unk);
 
 /**
  * Unknown function.
@@ -167,7 +181,7 @@ s32 sceNet_lib_0xB20F84F8(const char* name, char* unk);
  * @param unk A char array.
  * @return result of ioctl 0x801469d2 (0x8000000 = DIRECTION_IN)
  */
-s32 sceNet_lib_0xAFA11338(const char* name, char* unk);
+s32 sceNet_lib_AFA11338(const char *name, char *unk);
 
 /**
  * Unknown function.
@@ -177,7 +191,7 @@ s32 sceNet_lib_0xAFA11338(const char* name, char* unk);
  * @param unk2 Unknown
  * @return result of ioctl 0xc01869d (0xC000000 = DIRECTION_IN+OUT)
  */
-s32 sceNet_lib_0x03164B12(const char* name, struct CreateData* unk, char* unk2);
+s32 sceNet_lib_03164B12(const char *name, struct CreateData *unk, char *unk2);
 
 
 #endif /* PSPNET_H */

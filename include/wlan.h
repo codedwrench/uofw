@@ -1,6 +1,13 @@
 #ifndef WLAN_H
 #define WLAN_H
 
+// Used in wlan driver
+struct wlanDrv_Params {
+    u16 unk;
+    u16 unk2;
+    u16 unk3;
+};
+
 /**
  * Seems to set a parameter on the wifi card?
  * @param unk
@@ -15,6 +22,13 @@ s32 sceWlanDrv_lib_5BAA1FE5(s32 unk);
  * @param unk Seems to put something in here
  * @return <0 error, one such error is 0x80410d13 (Bad params)
  */
-s32 sceWlanDrv_lib_56F467CA(s32* unk);
+s32 sceWlanDrv_lib_56F467CA(struct wlanDrv_Params* unk);
+
+/**
+ * Seems to set parameter on wifi card, possibly beacon period?
+ * @param unk Parameters set.
+ * @return <0 error, one such error is 0x80410d13 (Bad params)
+ */
+s32 sceWlanDrv_lib_2D0FAE4E(struct wlanDrv_Params* unk);
 
 #endif // WLAN_H
