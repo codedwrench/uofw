@@ -35,6 +35,7 @@ s32 sceNetAdhocAuth_lib_72AAC6D3(u16 playerDataSize, u32 playerData);
 
 /**
  * Creates and starts thread in the the sceNetAdhocAuth lib. (sceNetAdhocAuth_driver_0x89F2A732)
+ *
  * @param name Name of the interface.
  * @param priority Priority of the thread to create.
  * @param stackSize Size that the stack for the thread needs to be.

@@ -118,7 +118,7 @@ s32 sceNetConfigGetIfEvent(const char *name, s32 *eventAddr, s32 *unk);
 s32 sceNetConfigSetIfEventFlag(const char *name, SceUID eventFlags, u32 bitMask);
 
 /**
- * Gets an event to use?
+ * Unknown function
  *
  * @param name Name of the interface.
  * @param unk Unknown, something gets put into here.
