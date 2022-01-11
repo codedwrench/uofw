@@ -24,19 +24,28 @@ struct ScanData {
     //                                [4] : Unknown
 };
 
-struct CreateData {
-    char bssid[6];    // 0x0  02 21 31 65 41 C6 - bssid ?
-    u8 channel;       // 0x6  01
-    u8 ssid_len;      // 0x7  18
-    char ssid[32];    // 0x8  PSP_AULES00469_G_K3JM27c
-    s32 bssType;      // 0x28 02 00 00 00
-    u32 beaconPeriod; // 0x2c 0C 00 00 00
-    u32 dtimPeriod;   // 0x30 00 00 00 00
-    u32 timeStamp;    // 0x34 00 00 00 00
-    u32 localTime;    // 0x38 00 00 00 00
-    u16 atim;         // 0x3a 00 00
-    u16 capabilities; // 0x3e 22 00
-    char unk6[48];    // 0x40 00 00 .... ....
+struct CreateJoinData {
+    char bssid[6];                    // 0x0  02 21 31 65 41 C6 - bssid ?
+    u8 channel;                       // 0x6  01
+    u8 ssid_len;                      // 0x7  18
+    char ssid[32];                    // 0x8  PSP_AULES00469_G_K3JM27c
+    s32 bssType;                      // 0x28 02 00 00 00
+    u32 beaconPeriod;                 // 0x2c 0C 00 00 00
+    u32 dtimPeriod;                   // 0x30 00 00 00 00
+    u32 timeStamp;                    // 0x34 00 00 00 00
+    u32 localTime;                    // 0x38 00 00 00 00
+    u16 atim;                         // 0x3a 00 00
+    u16 capabilities;                 // 0x3e 22 00
+    u8 rate[8];                       // 0x40 - Matches wireshark rates
+    u8 rssi;                          // 0x48 - Percentage 0-100%
+    u8 gameModeData[18];              // 0x4a - First byte is 2 on gamemode data [ 02 05 02 0f 08 ]
+    u8 unk[16];                       // 0x5c
+    u32 unk2;                         // 0x6c
+    // Gamemode data type assumption: [0] : Gamemode type
+    //                                [1] : Counter
+    //                                [2] : Amount of players
+    //                                [3] : Unknown
+    //                                [4] : Unknown
 };
 
 struct ScanParams {
@@ -191,7 +200,16 @@ s32 sceNet_lib_AFA11338(const char *name, char *unk);
  * @param unk2 Unknown
  * @return result of ioctl 0xc01869d (0xC000000 = DIRECTION_IN+OUT)
  */
-s32 sceNet_lib_03164B12(const char *name, struct CreateData *unk, char *unk2);
+s32 sceNet_lib_03164B12(const char *name, struct CreateJoinData *unk, char *unk2);
 
+/**
+ * Unknown function.
+ *
+ * @param name Name of the interface.
+ * @param unk Structure with ssid, channel and some other stuff.
+ * @param unk2 Unknown
+ * @return result of ioctl 0xc01869d6 (0xC000000 = DIRECTION_IN+OUT)
+ */
+s32 sceNet_lib_389728AB(const char *name, struct CreateJoinData *unk, char *unk2);
 
 #endif /* PSPNET_H */
