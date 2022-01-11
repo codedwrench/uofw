@@ -118,6 +118,7 @@
 /* 0x07 adhoc */
 #define SCE_ERROR_NET_ADHOC_TIMEOUT                   0x80410715
 #define SCE_ERROR_NET_ADHOC_DISCONNECTED              0x8041070c
+#define SCE_ERROR_NET_ADHOC_REFUSED                   0x80410718
 
 /* 0x0b adhocctl */
 #define SCE_ERROR_NET_ADHOCCTL_ALREADY_CONNECTED      0x80410B02

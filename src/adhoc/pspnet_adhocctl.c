@@ -925,7 +925,7 @@ s32 CreateEnterGamemode(struct unk_struct *unpackedArgs, struct unk_struct2 *gam
                                     // Seems it adds about 112500 microseconds of time that this can take
                                     tmp = sceNetAdhocPtpListen
                                             ((unsigned char *) &gameModeData->playerMacs, 32769, 0x2000, 200000,
-                                             (int) (gameModeData->timeout) / 312500 + 1,
+                                             (int) (gameModeData->timeout / 200000) + 1,
                                              gameModeData->amountOfPlayers - 1, 0);
                                     if (tmp >= 0) {
                                         // Seems to do something related to accepting PTP connections
@@ -1048,14 +1048,15 @@ s32 JoinGameMode(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeDa
     char ssid[33];
     char nickname[128];
     s32 clocks[5];
-    char[6] macAddress;
+    u8 macAddress[6];
     struct CreateJoinData joinData;
     struct ScanParams scanParams;
     struct ScanData* scanPtr;
+    s32 sockId;
     s32 tmp;
     s32 err = 0;
     u32 totalSize;
-    u32 bufferSize;
+    s32 bufferSize;
     s32 i;
     u32 timeLeftUs;
 
@@ -1177,7 +1178,7 @@ s32 JoinGameMode(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeDa
                             unk2 = 0;
 
                             ret = sceNet_lib_7BA3ED91(g_WifiAdapter, &scanParams, &bufferSize,
-                                                      (struct ScanData *) g_ScanBuffer, &unk2);
+                                                      (struct ScanData *) g_ScanBuffer, (u32 *) &unk2);
                             tmp = WaitEventDeviceUpAndConnect(unpackedArgs);
                             if ((tmp << 4) >> 0x14 == SCE_ERROR_FACILITY_NETWORK) {
                                 break;
@@ -1215,11 +1216,11 @@ s32 JoinGameMode(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeDa
                                         if (scanPtr->bssType == 2) {
                                             sceKernelMemset(&joinData, 0, sizeof(struct CreateJoinData));
                                             sceKernelMemcpy(&joinData.bssid, scanPtr->bssid,
-                                                            sizeof(ScanData) - sizeof(void *));
+                                                            sizeof(struct ScanData) - sizeof(void *));
 
                                             joinData.unk2 = 1;
                                             unk2 = 0;
-                                            ret = sceNet_lib_0x389728AB(&g_WifiAdapter4, &joinData, &unk);
+                                            ret = sceNet_lib_389728AB(g_WifiAdapter4, &joinData, &unk);
                                             tmp = WaitEventDeviceUpAndConnect(unpackedArgs);
                                             if ((tmp << 4) >> 0x14 != SCE_ERROR_FACILITY_NETWORK) {
                                                 if (ret >= 0) {
@@ -1268,10 +1269,57 @@ s32 JoinGameMode(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeDa
                                                     if (ret >= 0) {
                                                         ret = sceNetGetLocalEtherAddr(macAddress);
                                                         if (ret >= 0) {
-                                                            // YOU WERE HERE
-
                                                             // local_3c = param_2->playermacs
                                                             // uVar14 = param_2->field_0xb4
+                                                            // goto LAB_00004a80;
+
+                                                            sockId = sceNetAdhocPtpOpen(macAddress, 32769,
+                                                                                     (u8 *) gameModeData->playerMacs,
+                                                                                     32769,
+                                                                                     8192,
+                                                                                     200000,
+                                                                                     (s32)(gameModeData->timeout /
+                                                                                                 200000) + 1,
+                                                                                     0);
+                                                            if (sockId >= 0) {
+                                                                if (gameModeData->timeout == 0) {
+                                                                    // Don't do anything
+                                                                } else {
+                                                                    secondSystemTime = sceKernelGetSystemTimeWide();
+
+                                                                    if (((secondSystemTime < firstSystemTime) ||
+                                                                         ((secondSystemTime - firstSystemTime) >
+                                                                         UINT32_MAX) ||
+                                                                         ((secondSystemTime - firstSystemTime) >=
+                                                                         gameModeData->timeout))) {
+
+                                                                        ret = SCE_ERROR_NET_ADHOCCTL_TIMEOUT;
+                                                                        err = 1;
+                                                                        break;
+                                                                    }
+
+                                                                    timeLeftUs = gameModeData->timeout -
+                                                                            (secondSystemTime - firstSystemTime);
+
+                                                                    ret = sceNetAdhocPtpConnect(sockId,
+                                                                                                timeLeftUs,
+                                                                                                0);
+                                                                    if (ret >= 0) {
+                                                                    } else {
+                                                                        if (ret == (s32)SCE_ERROR_NET_ADHOC_REFUSED) {
+                                                                            sceNetAdhocPtpClose(sockId, 0);
+                                                                            sceKernelDelayThread(1000000);
+                                                                        } else {
+                                                                            if (sockId >= 0) {
+                                                                                sceNetAdhocPtpClose(sockId,0);
+                                                                            }
+                                                                            err = 1;
+                                                                        }
+                                                                    }
+                                                                }
+                                                            } else {
+                                                                err = 1;
+                                                            }
                                                         } else {
                                                             err = 1;
                                                         }
@@ -1300,91 +1348,12 @@ s32 JoinGameMode(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeDa
                         if (!err) {
 
                                 if (ret >= 0) {
-                                    bufferSize = gameModeData->playerDataSize + gameModeData->amountOfPlayers *
-                                                                                sizeof(MacAddress);
-
-                                    // The data added under here amounts to 25 bytes
-                                    bufferSize += 25;
-
-                                    g_Unk7.unk2 = 1;
-
-                                    // For some reason the size that gets put in g_Unk7.unk4 is 6 bytes lower
-                                    totalSize = bufferSize + 19;
-
-                                    g_Unk7.unk3 = 1;
-
-                                    // g_Unk7 has everything in big endian
-                                    // Swap endianness on total size
-                                    g_Unk7.unk4 = pspWsbw(totalSize);
-
-                                    // These are probably tags, TAG 1
-                                    g_Unk7.unk5 = 1;
-
-                                    g_Unk7.playerDataSize = pspWsbh(gameModeData->playerDataSize);
-                                    if (gameModeData->playerDataSize != 0) {
-                                        sceKernelMemcpy(g_Unk7.playerDataBuffer, &gameModeData->playerData,
-                                                        gameModeData->playerDataSize);
-                                    }
-
-                                    // Keep array location in tmp
-                                    tmp = g_Unk7.playerDataSize;
-
-                                    // TAG 2
-                                    g_Unk7.playerDataBuffer[tmp] = 2;
-                                    tmp++;
-
-                                    // Swap endianness here as well; this size is 2 bytes in size
-                                    *((u16 *) &g_Unk7.playerDataBuffer[tmp]) =
-                                            pspWsbh(gameModeData->amountOfPlayers * (sizeof(MacAddress)));
-
-                                    tmp += 2;
-
-                                    if (gameModeData->amountOfPlayers > 0) {
-                                        // Copy player mac addresses
-                                        for (i = 0; i < gameModeData->amountOfPlayers; i++) {
-                                            // Copy Mac Address to 3 bytes beyond the start + 6 * Amount of Addresses
-                                            // already assigned
-                                            tmp += (i * (s32) (sizeof(MacAddress)));
-                                            sceKernelMemcpy(&g_Unk7.playerDataBuffer[tmp],
-                                                            gameModeData->playerMacs[i], (sizeof(MacAddress)));
-                                        }
-                                    }
-
-                                    // TAG 3
-                                    g_Unk7.playerDataBuffer[tmp] = 3;
-                                    tmp++;
-                                    *((u16 *) &g_Unk7.playerDataBuffer[tmp]) = 0x0200;
-                                    tmp += 2;
-
-                                    // contained 40 00 in test
-                                    *((u16 *) &g_Unk7.playerDataBuffer[tmp]) = pspWsbh(gameModeData->unk12);
-                                    tmp += 2;
-
-                                    // TAG 4
-                                    g_Unk7.playerDataBuffer[tmp] = 4;
-                                    tmp++;
-                                    *((u16 *) &g_Unk7.playerDataBuffer[tmp]) = 0x0100;
-                                    tmp += 2;
-
-                                    // contained 0F in test, ((8*i)+15)
-                                    // i = 0
-                                    *((u16 *) &g_Unk7.playerDataBuffer[tmp]) = pspWsbh(gameModeData->unk15);
-                                    tmp += 2;
-
-                                    // TAG 5
-                                    g_Unk7.playerDataBuffer[tmp] = 5;
-                                    tmp++;
-                                    *((u16 *) &g_Unk7.playerDataBuffer[tmp]) = 0x0100;
-                                    tmp += 2;
-
-                                    g_Unk7.playerDataBuffer[tmp] = gameModeData->unk16[0];
-                                    tmp++;
 
                                     // Count comes out to 97 in a test with Bomberman
                                     // Seems it adds about 112500 microseconds of time that this can take
                                     tmp = sceNetAdhocPtpListen
                                             ((unsigned char *) &gameModeData->playerMacs, 32769, 0x2000, 200000,
-                                             (int) (gameModeData->timeout) / 312500 + 1,
+                                             (int) (gameModeData->timeout / 200000) + 1,
                                              gameModeData->amountOfPlayers - 1, 0);
                                     if (tmp >= 0) {
                                         // Seems to do something related to accepting PTP connections

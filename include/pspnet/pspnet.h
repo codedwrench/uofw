@@ -124,7 +124,14 @@ s32 sceNetConfigGetIfEvent(const char *name, s32 *eventAddr, s32 *unk);
  *
  * @return 0 if successful.
  */
-s32 sceNetConfigSetIfEventFlag(const char *name, SceUID eventFlags, u32 bitMask);
+s32 sceNetConfigSetIfEventFlag(const char* name, SceUID eventFlags, u32 bitMask);
+
+/**
+ * Retrieves the local mac address.
+ * @param mac Destination pointer for the mac address.
+ * @return 0 on success, < 0 on error.
+ */
+s32 sceNetGetLocalEtherAddr(u8* mac);
 
 /**
  * Unknown function
