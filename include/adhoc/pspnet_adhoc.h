@@ -62,6 +62,17 @@ s32 sceNetAdhocPtpClose(s32 sockId, s32 unk);
 s32 sceNetAdhocPtpAccept(s32 sockId, unsigned char *mac, u16* port, u32 timeout, s32 nonblock);
 
 /**
+ * Receives data on an incoming PTP (TCP-like) connection.
+ * @param sockId Socket id to use.
+ * @param data Received data.
+ * @param dataLength Length of received data.
+ * @param timeout Timeout in microseconds.
+ * @param nonblock Set to 0 to block, 1 for non-blocking.
+ * @return Number of bytes received when successful, <0 on failure.
+ */
+s32 sceNetAdhocPtpRecv(s32 sockId, void* data, void* dataLength, u32 timeout, s32 nonblock);
+
+/**
  * Send data on a PTP (TCP-like) connection.
  * @param sockId Socket id to use.
  * @param data Connecting peers mac.
