@@ -85,7 +85,7 @@ struct unk_struct2 {
     s32 unk10;                     // 0x9c - B3 85 13 F2
     s32 unk11;                     // 0xa0 - D3 A1 8A D2
     s16 unk12;                     // 0xa4 - 40 00
-    s16 unk13;                     // 0xa6 - 00 00
+    s16 currentMac;                // 0xa6 - 00 00 // Points to the index of the mac address this PSP is at
     s16 unk14;                     // 0xa8 - 10 00
     char unk15;                    // 0xaa ((8*i)+15)? - 0F
     char unk16[3];                 // 0xab - 08 00 00
