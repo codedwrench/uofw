@@ -1980,6 +1980,7 @@ s32 ThreadFunc(SceSize args, void *argp) {
             }
         }
         // This seems to do something with gamemode
+        // GameMode Create game
         if ((outBits & (1 << 4)) != 0) {
             sceKernelClearEventFlag(unpackedArgs->eventFlags, ~0x10);
             connectionState = CreateEnterGamemode(unpackedArgs, &g_Unk2);
@@ -1995,12 +1996,24 @@ s32 ThreadFunc(SceSize args, void *argp) {
                 continue;
             }
         }
+
+        // GameMode Join game
         if ((outBits & (1 << 5)) != 0) {
             sceKernelClearEventFlag(unpackedArgs->eventFlags, ~0x20);
             connectionState = JoinGameMode(unpackedArgs, &g_Unk2);
-            //if (connectionState < 0) goto LAB_000038a8;
-            //FUN_00002600(4, 0);
+            if (connectionState >= 0) {
+                RunAdhocctlHandlers(SCE_NET_ADHOCCTL_EVENT_DEVICE_UP, 0);
+            } else {
+                tmp = WaitEventDeviceUpAndConnect(unpackedArgs);
+                if (tmp < 0) {
+                    connectionState = tmp;
+                }
+                RunAdhocctlHandlers(SCE_NET_ADHOCCTL_EVENT_ERROR, /*actInThread*/ 0);
+                unpackedArgs->unk5 &= 0xfffffffe;
+                continue;
+            }
         }
+
         if ((outBits & 0x40) != 0) {
             sceKernelClearEventFlag(unpackedArgs->eventFlags, ~0x40);
             //FUN_0000554c(param_2, 0x7e0);
