@@ -2128,7 +2128,7 @@ s32 ThreadFunc(SceSize args, void *argp) {
             return 0;
         }
 
-        // Init
+        // Init, maybe connnect?
         if ((outBits & (1 << 1)) != 0) {
             sceKernelClearEventFlag(unpackedArgs->eventFlags, ~(1 << 1));
             connectionState = InitAdhoc(unpackedArgs);
@@ -2212,9 +2212,9 @@ s32 ThreadFunc(SceSize args, void *argp) {
             RunAdhocctlHandlers(SCE_NET_ADHOCCTL_EVENT_DISCONNECT, /*actInThread*/ 0);
         }
 
-        // Connect
+        // Adhocdiscover?
         if ((outBits & (1 << 7)) != 0) {
-            sceKernelClearEventFlag(unpackedArgs->eventFlags, ~0x80);
+            sceKernelClearEventFlag(unpackedArgs->eventFlags, ~(1 << 7));
 
             connectionState = Join(unpackedArgs);
             if (connectionState >= 0) {
