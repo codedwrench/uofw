@@ -11,7 +11,7 @@ extern const char g_AdhocRegString[];
 extern const char g_SSIDPrefixRegKey[];
 
 #define SCE_NET_ADHOCCTL_EVENT_ERROR         0x0
-#define SCE_NET_ADHOCCTL_EVENT_CONNECT       0x1
+#define SCE_NET_ADHOCCTL_EVENT_CONNECT       0x1 // This seems to also be called on init
 #define SCE_NET_ADHOCCTL_EVENT_DISCONNECT    0x2
 #define SCE_NET_ADHOCCTL_EVENT_SCAN          0x3
 
@@ -106,7 +106,7 @@ struct unk_struct3 {
 
 
 // May be comparable to GameModeArea in PPSSPP
-struct unk_struct4 {
+struct GameModeArea {
     s32 unk1;                    // 0x0  - FF FF FF FF
     u8  unk2;                    // 0x4  - 01
     u8  unk3;                    // 0x5  - 01

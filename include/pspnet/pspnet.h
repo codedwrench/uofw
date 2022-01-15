@@ -15,8 +15,8 @@ struct ScanData {
     unsigned short atim;              // 0x40
     unsigned short capabilities;      // 0x42
     char rate[8];                     // 0x44 - Matches wireshark rates
-    unsigned short rssi;              // 0x4a - Percentage 0-100%
-    unsigned char gameModeData[18];   // 0x4c - First byte is 2 on gamemode data [ 02 05 02 0f 08 ]
+    unsigned short rssi;              // 0x4c - Percentage 0-100%
+    unsigned char gameModeData[18];   // 0x4e - First byte is 2 on gamemode data [ 02 05 02 0f 08 ]
     // Gamemode data type assumption: [0] : Gamemode type
     //                                [1] : Counter
     //                                [2] : Amount of players
@@ -156,8 +156,8 @@ s32 sceNet_lib_0D633F53(const char *name, s32 *unk, MacAddress *macAddress, s32 
  *
  * @return 0 if successful.
  */
-s32 sceNet_lib_7BA3ED91(const char *name, struct ScanParams *scanParams, s32 *size, struct ScanData *scanData,
-                        u32 *unk4);
+s32 sceNet_lib_ScanNetworks(const char *name, struct ScanParams *scanParams, s32 *size, struct ScanData *scanData,
+                            u32 *unk4);
 
 /**
  * Unknown function.
