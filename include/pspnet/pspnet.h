@@ -1,6 +1,8 @@
 #ifndef PSPNET_H
 #define PSPNET_H
 
+typedef char MacAddress[6];
+
 struct ScanData {
     struct ScanData *next;            // 0x0
     char bssid[6];                    // 0x4
@@ -200,23 +202,23 @@ s32 sceNet_lib_B20F84F8(const char *name, char *unk);
 s32 sceNet_lib_AFA11338(const char *name, char *unk);
 
 /**
- * Unknown function.
+ * Unknown function. Probably creates network.
  *
  * @param name Name of the interface.
- * @param unk Structure with ssid, channel and some other stuff.
+ * @param createData Structure with ssid, channel and some other stuff.
  * @param unk2 Unknown
  * @return result of ioctl 0xc01869d (0xC000000 = DIRECTION_IN+OUT)
  */
-s32 sceNet_lib_03164B12(const char *name, struct CreateJoinData *unk, char *unk2);
+s32 sceNet_lib_CreateNetwork(const char *name, struct CreateJoinData *createData, char *unk2);
 
 /**
- * Unknown function.
+ * Unknown function. Probably joins network.
  *
  * @param name Name of the interface.
- * @param unk Structure with ssid, channel and some other stuff.
+ * @param joinData Structure with ssid, channel and some other stuff.
  * @param unk2 Unknown
  * @return result of ioctl 0xc01869d6 (0xC000000 = DIRECTION_IN+OUT)
  */
-s32 sceNet_lib_389728AB(const char *name, struct CreateJoinData *unk, char *unk2);
+s32 sceNet_lib_JoinNetwork(const char *name, struct CreateJoinData *joinData, char *unk2);
 
 #endif /* PSPNET_H */

@@ -5,6 +5,8 @@ See the file COPYING for copying permission.
 #ifndef PSPNET_ADHOCCTL_H
 #define PSPNET_ADHOCCTL_H
 
+#include "pspnet/pspnet.h"
+
 extern const char g_WifiAdapter[];
 extern const char g_DefSSIDPrefix[];
 extern const char g_AdhocRegString[];
@@ -16,10 +18,14 @@ extern const char g_SSIDPrefixRegKey[];
 #define SCE_NET_ADHOCCTL_EVENT_SCAN          0x3
 
 // TODO: Is this truly what this means?
-#define SCE_NET_ADHOCCTL_EVENT_DEVICE_UP 0x8
+#define SCE_NET_ADHOCCTL_EVENT_GAMEMODE_CONNECT 0x4
+#define SCE_NET_ADHOCCTL_EVENT_DISCOVER         0x5
+#define SCE_NET_ADHOCCTL_EVENT_DEVICE_UP        0x8
 
 #define ADHOC_SUBTYPE_NORMALMODE 'L'
 #define ADHOC_SUBTYPE_GAMEMODE   'G'
+
+#define MAX_SCAN_NETWORKS 20
 
 enum BssTypes {
     BSS_TYPE_INFRASTRUCTURE = 1,
@@ -42,7 +48,7 @@ enum ConnectionStates {
     ConnectionState_Connected    = 1,
     ConnectionState_Unknown      = 2,
     ConnectionState_GameMode     = 3,
-    ConnectionState_Unknown2     = 4,
+    ConnectionState_Discovering     = 4,
     ConnectionState_Unknown3     = 5
 };
 
@@ -60,20 +66,24 @@ enum CapabilityMasks {
     CAPABILITY_CHANNEL_AGILITY = 0x80
 };
 
-struct unk_struct {
-    SceUID eventFlags;            // 0x0
-    SceUID tid;                   // 0x4
-    s32 connectionState;          // 0x8
-    u32 channel;                  // 0xc
-    s32 unk2;                     // 0x10 (buffer size? gets filled with 0x780 (1920))
-    s32 timeout;                  // 0x14
-    u32 unk3;                     // 0x18, could contain 0x80410b83
-    s32 stackSpace;               // 0x1c
-    u32 unk5;                     // 0x20, bitfield (& 0x2, 0x10 checked, 0xf, 0xc0000001; written)
-    char ssidSuffix[8];           // 0x24
-    char unk7[1920];              // 0x2c (buffer?)
-    char unk8[28];                // 0x7ac
-    struct ProductStruct product; // 0x7c8
+
+// Contains internal members of pspnet_adhocctl module
+struct AdhocCtl_Members {
+    SceUID eventFlags;                           // 0x0
+    SceUID tid;                                  // 0x4
+    s32 connectionState;                         // 0x8
+    u32 channel;                                 // 0xc
+    s32 unk2;                                    // 0x10 (buffer size? gets filled with 0x780 (1920))
+    s32 timeout;                                 // 0x14
+    u32 unk3;                                    // 0x18, could contain 0x80410b83
+    s32 stackSpace;                              // 0x1c
+    u32 unk5;                                    // 0x20, bitfield (& 0x2, 0x10 checked, 0xf, 0xc0000001; written)
+    char ssidSuffix[8];                          // 0x24
+    struct ScanData scanData[MAX_SCAN_NETWORKS]; // 0x2c (buffer?)
+    char unk8[16];                               // 0x7ac
+    char bssid[6];                               // 0x7bc
+    char unk10[6];                               // 0x7c2
+    struct ProductStruct product;                // 0x7c8
 };
 
 

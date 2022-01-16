@@ -44,7 +44,7 @@ const char g_AllChannels[3] = {11, 6, 1};    // 0x657C
 int g_Init = 0; // 0x66D0
 char g_SSIDPrefix[4]; // 0x66D4
 
-struct unk_struct g_Unk; // 0x66D8
+struct AdhocCtl_Members g_Members; // 0x66D8
 
 struct unk_struct2 g_Unk2; // 0x6EB0
 
@@ -76,25 +76,25 @@ s32 CreateLwMutex();
 
 void DeleteLwMutex();
 
-s32 GetChannelAndSSID(struct unk_struct *unpackedArgs, char *ssid, u32 *channel);
+s32 GetChannelAndSSID(struct AdhocCtl_Members *members, char *ssid, u32 *channel);
 
 int GameModeParseBeaconFrame(struct unk_struct2 *param_1, char *channel, char *unk);
 
 s32 FUN_000054d8(char param_1);
 
-s32 ScanAndConnect(struct unk_struct *unpackedArgs);
+s32 ScanAndConnect(struct AdhocCtl_Members *members);
 
 /**
  * Builds the SSID to be used to make the connection.
  *
- * @param unpackedArgs Pointer to struct with all the information.
+ * @param members Pointer to struct with all the information.
  * @param ssid The resulting SSID.
  * @param adhocSubType Whether it's normal adhoc or gamemode (G/L).
  * @param ssidSuffix What to put behind the last separator.
  *
  * @return Length of the SSID.
  */
-s32 BuildSSID(struct unk_struct *unpackedArgs, char *ssid, char adhocSubType, char *ssidSuffix);
+s32 BuildSSID(struct AdhocCtl_Members *members, char *ssid, char adhocSubType, char *ssidSuffix);
 
 /**
  * Gets the prefix of the SSID (PSP)
@@ -163,7 +163,7 @@ s32 StartAuthAndThread(s32 stackSize, s32 priority, struct ProductStruct *produc
     // Seems to do something with buffers
     s32 ret;
 
-    sceKernelMemset(&g_Unk, 0, sizeof(struct unk_struct));
+    sceKernelMemset(&g_Members, 0, sizeof(struct AdhocCtl_Members));
     sceKernelMemset(g_Unk4, 0, 64);
     sceKernelMemset(g_Unk5, 0, 64);
 
@@ -171,24 +171,24 @@ s32 StartAuthAndThread(s32 stackSize, s32 priority, struct ProductStruct *produc
     if (ret < 0) {
         return ret;
     } else {
-        sceKernelMemcpy((void *) &g_Unk.product, product, (sizeof(struct ProductStruct)));
+        sceKernelMemcpy((void *) &g_Members.product, product, (sizeof(struct ProductStruct)));
         ret = CreateLwMutex();
         if (ret >= 0) {
             ret = sceKernelCreateEventFlag(g_MutexName, 0, 0, 0);
             if (ret >= 0) {
-                g_Unk.eventFlags = ret;
-                g_Unk.tid = sceKernelCreateThread(g_ThreadName, ThreadFunc, priority, stackSize, 0, 0);
-                if (g_Unk.tid >= 0) {
-                    ret = sceKernelStartThread(g_Unk.tid, 4, &g_Unk);
+                g_Members.eventFlags = ret;
+                g_Members.tid = sceKernelCreateThread(g_ThreadName, ThreadFunc, priority, stackSize, 0, 0);
+                if (g_Members.tid >= 0) {
+                    ret = sceKernelStartThread(g_Members.tid, 4, &g_Members);
                     if (ret >= 0) {
-                        g_Unk.stackSpace = stackSize - 3072;
-                        g_Unk.timeout = 5;
+                        g_Members.stackSpace = stackSize - 3072;
+                        g_Members.timeout = 5;
                         return ret;
                     }
-                    sceKernelTerminateThread(g_Unk.tid);
-                    sceKernelDeleteThread(g_Unk.tid);
+                    sceKernelTerminateThread(g_Members.tid);
+                    sceKernelDeleteThread(g_Members.tid);
                 }
-                sceKernelDeleteEventFlag(g_Unk.eventFlags);
+                sceKernelDeleteEventFlag(g_Members.eventFlags);
             }
         }
         DeleteLwMutex();
@@ -211,7 +211,7 @@ s32 RunAdhocctlHandlers(s32 flag, s32 err) {
             // Sets the global pointer to the new spot
             oldGp = pspSetGp(handlerStruct->funcGlobalArea);
 
-            stackSpace = sceKernelCheckThreadStack() - g_Unk.stackSpace;
+            stackSpace = sceKernelCheckThreadStack() - g_Members.stackSpace;
             if (stackSpace < 1) {
                 handlerStruct->handler(flag, err, handlerStruct->handlerArg);
             } else {
@@ -251,7 +251,7 @@ s32 RunAdhocctlHandlers(s32 flag, s32 err) {
     return 0;
 }
 
-s32 FUN_00003bc0(struct unk_struct *unpackedArgs) {
+s32 FUN_00003bc0(struct AdhocCtl_Members *members) {
     s32 ret;
     s32 eventAddr;
     s32 unk;
@@ -263,8 +263,8 @@ s32 FUN_00003bc0(struct unk_struct *unpackedArgs) {
             return ret;
         }
         if (eventAddr == 8) {
-            if (unpackedArgs->connectionState == ConnectionState_Unknown3) {
-                unpackedArgs->unk5 |= 0x10;
+            if (members->connectionState == ConnectionState_Unknown3) {
+                members->unk5 |= 0x10;
             }
             return 0;
         }
@@ -277,12 +277,12 @@ s32 FUN_00003bc0(struct unk_struct *unpackedArgs) {
     }
 
     while (1) {
-        ret = sceKernelWaitEventFlag(unpackedArgs->eventFlags, SCE_NET_ADHOCCTL_EVENT_DEVICE_UP, 1, &outBits, 0);
+        ret = sceKernelWaitEventFlag(members->eventFlags, SCE_NET_ADHOCCTL_EVENT_DEVICE_UP, 1, &outBits, 0);
         if (ret < 0) {
             return ret;
         }
 
-        sceKernelClearEventFlag(unpackedArgs->eventFlags, ~SCE_NET_ADHOCCTL_EVENT_DEVICE_UP);
+        sceKernelClearEventFlag(members->eventFlags, ~SCE_NET_ADHOCCTL_EVENT_DEVICE_UP);
 
         ret = sceNetConfigGetIfEvent(g_WifiAdapter3, &eventAddr, &unk);
         while (ret != (s32) SCE_NET_ID_CORE_NO_EVENT) {
@@ -290,8 +290,8 @@ s32 FUN_00003bc0(struct unk_struct *unpackedArgs) {
                 return ret;
             }
             if (eventAddr == 8) {
-                if (unpackedArgs->connectionState == ConnectionState_Unknown3) {
-                    unpackedArgs->unk5 |= 0x10;
+                if (members->connectionState == ConnectionState_Unknown3) {
+                    members->unk5 |= 0x10;
                 }
                 return 0;
             }
@@ -300,11 +300,11 @@ s32 FUN_00003bc0(struct unk_struct *unpackedArgs) {
             }
             ret = sceNetConfigGetIfEvent(g_WifiAdapter3, &eventAddr, &unk);
         }
-        ret = unpackedArgs->eventFlags;
+        ret = members->eventFlags;
     }
 }
 
-int HandleEvent(struct unk_struct *unpackedArgs, s32 *eventAddr, s32 *unk) {
+int HandleEvent(struct AdhocCtl_Members *members, s32 *eventAddr, s32 *unk) {
     s32 ret = 0;
     s32 event;
     s32 tmp;
@@ -322,49 +322,49 @@ int HandleEvent(struct unk_struct *unpackedArgs, s32 *eventAddr, s32 *unk) {
 
         event = *eventAddr;
         if (event == 4) {
-            if (unpackedArgs->connectionState == ConnectionState_Connected) {
+            if (members->connectionState == ConnectionState_Connected) {
                 // TODO: What does this mean?
-                unpackedArgs->unk3 = 0x80410B83;
+                members->unk3 = 0x80410B83;
             }
             ret = SCE_ERROR_NET_ADHOCCTL_WLAN_SWITCH_DISABLED;
         } else if (event == 5) {
-            if ((unpackedArgs->unk5 & 0x02) == 0) {
+            if ((members->unk5 & 0x02) == 0) {
                 ret = SCE_ERROR_NET_ADHOCCTL_BEACON_LOST;
-                unpackedArgs->unk5 |= 0x02;
+                members->unk5 |= 0x02;
             }
         } else if (event == 7) {
-            if (unpackedArgs->connectionState == ConnectionState_Connected) {
+            if (members->connectionState == ConnectionState_Connected) {
                 sceNetAdhocAuth_lib_2E6AA271();
                 // TODO: What does this mean?
-                unpackedArgs->unk3 = 0x80410B84;
+                members->unk3 = 0x80410B84;
             }
             RunAdhocctlHandlers(5, 0);
-            ret = FUN_00003bc0(unpackedArgs);
-            if ((ret >= 0) && (unpackedArgs->connectionState != ConnectionState_Unknown3)) {
+            ret = FUN_00003bc0(members);
+            if ((ret >= 0) && (members->connectionState != ConnectionState_Unknown3)) {
                 ret = SCE_ERROR_NET_ADHOCCTL_UNKOWN_ERR1;
             }
         }
     }
-    if (sceKernelPollEventFlag(unpackedArgs->eventFlags, 0x42, SCE_KERNEL_EW_OR, NULL) == 0) {
+    if (sceKernelPollEventFlag(members->eventFlags, 0x42, SCE_KERNEL_EW_OR, NULL) == 0) {
         ret = 0;
     }
     return ret;
 }
 
-int WaitAndHandleEvent(struct unk_struct *unpackedArgs) {
+int WaitAndHandleEvent(struct AdhocCtl_Members *members) {
     s32 ret;
     u32 outBits;
     s32 eventAddr;
     s32 unk;
 
-    ret = sceKernelPollEventFlag(unpackedArgs->eventFlags, SCE_NET_ADHOCCTL_EVENT_DEVICE_UP, SCE_KERNEL_EW_OR,
+    ret = sceKernelPollEventFlag(members->eventFlags, SCE_NET_ADHOCCTL_EVENT_DEVICE_UP, SCE_KERNEL_EW_OR,
                                  &outBits);
 
     if (ret != (s32) SCE_ERROR_KERNEL_EVENT_FLAG_POLL_FAILED) {
         if (ret >= 0) {
             if ((outBits & SCE_NET_ADHOCCTL_EVENT_DEVICE_UP) != 0) {
-                sceKernelClearEventFlag(unpackedArgs->eventFlags, ~SCE_NET_ADHOCCTL_EVENT_DEVICE_UP);
-                ret = HandleEvent(unpackedArgs, &eventAddr, &unk);
+                sceKernelClearEventFlag(members->eventFlags, ~SCE_NET_ADHOCCTL_EVENT_DEVICE_UP);
+                ret = HandleEvent(members, &eventAddr, &unk);
             }
         }
     } else {
@@ -373,7 +373,7 @@ int WaitAndHandleEvent(struct unk_struct *unpackedArgs) {
     return ret;
 }
 
-s32 InitAdhoc(struct unk_struct *unpackedArgs) {
+s32 InitAdhoc(struct AdhocCtl_Members *members) {
     s32 err = 0;
     s32 ret;
     s32 i;
@@ -384,7 +384,7 @@ s32 InitAdhoc(struct unk_struct *unpackedArgs) {
     s32 unk2;
 
     i = 0;
-    if (unpackedArgs->connectionState != ConnectionState_Disconnected) {
+    if (members->connectionState != ConnectionState_Disconnected) {
         return SCE_ERROR_NET_ADHOCCTL_ALREADY_CONNECTED;
     }
 
@@ -406,20 +406,20 @@ s32 InitAdhoc(struct unk_struct *unpackedArgs) {
             return ret;
         }
 
-        if (unpackedArgs->timeout <= i) {
+        if (members->timeout <= i) {
             return SCE_ERROR_NET_ADHOCCTL_TIMEOUT;
         }
 
         sceKernelDelayThread(1000000);
     }
 
-    unpackedArgs->unk5 = unpackedArgs->unk5 & 0xc0000001;
+    members->unk5 = members->unk5 & 0xc0000001;
     if ((sceNetConfigUpInterface(g_WifiAdapter) >= 0) &&
-        (sceNetConfigSetIfEventFlag(g_WifiAdapter, unpackedArgs->eventFlags, SCE_NET_ADHOCCTL_EVENT_DEVICE_UP) >=
+        (sceNetConfigSetIfEventFlag(g_WifiAdapter, members->eventFlags, SCE_NET_ADHOCCTL_EVENT_DEVICE_UP) >=
          0)) /* Event Flag 8, adapter inited? */ {
 
         sceKernelMemset(ssid, 0, (sizeof(ssid)));
-        ret = GetChannelAndSSID(unpackedArgs, ssid, &channel);
+        ret = GetChannelAndSSID(members, ssid, &channel);
         if (ret >= 0) {
             if (sceWlanGetSwitchState() == 0) {
                 ret = SCE_ERROR_NET_ADHOCCTL_WLAN_SWITCH_DISABLED;
@@ -428,7 +428,7 @@ s32 InitAdhoc(struct unk_struct *unpackedArgs) {
                 // This function needs to be disassembled
                 ret = sceNet_lib_D5B64E37(g_SSIDPrefix, ssid, ret, channel);
 
-                if ((((WaitAndHandleEvent(unpackedArgs) << 4) >> 0x14) !=
+                if ((((WaitAndHandleEvent(members) << 4) >> 0x14) !=
                      SCE_ERROR_FACILITY_NETWORK)
                     || (ret < 0)) { // if sceNet_lib_0xD5B64E37 failed
                     err = 1;
@@ -454,8 +454,8 @@ s32 InitAdhoc(struct unk_struct *unpackedArgs) {
                     if (ret < 0) {
                         err = 1;
                     } else {
-                        unpackedArgs->connectionState = ConnectionState_Connected;
-                        unpackedArgs->channel = channel;
+                        members->connectionState = ConnectionState_Connected;
+                        members->channel = channel;
                     }
                 }
             }
@@ -474,9 +474,9 @@ s32 InitAdhoc(struct unk_struct *unpackedArgs) {
     return ret;
 }
 
-int MemsetAndBuildGameModeSSID(struct unk_struct *unpackedArgs, char *ssid) {
+int MemsetAndBuildGameModeSSID(struct AdhocCtl_Members *members, char *ssid) {
     sceKernelMemset(ssid, 0, 33);
-    return BuildSSID(unpackedArgs, ssid, 'G', unpackedArgs->ssidSuffix);
+    return BuildSSID(members, ssid, 'G', members->ssidSuffix);
 }
 
 
@@ -671,7 +671,7 @@ s32 GameModeWaitForPlayersReJoin(struct unk_struct2 *gameModeData, int not_used,
 }
 
 // CreateEnterGameMode?
-s32 CreateEnterGamemode(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeData) {
+s32 CreateEnterGamemode(struct AdhocCtl_Members *members, struct unk_struct2 *gameModeData) {
     s32 ret;
     char channel;
     char *unk;
@@ -690,7 +690,7 @@ s32 CreateEnterGamemode(struct unk_struct *unpackedArgs, struct unk_struct2 *gam
     u32 bufferSize;
     s32 i;
 
-    if (unpackedArgs->connectionState != ConnectionState_Disconnected) {
+    if (members->connectionState != ConnectionState_Disconnected) {
         return SCE_ERROR_NET_ADHOCCTL_ALREADY_CONNECTED;
     }
 
@@ -734,10 +734,11 @@ s32 CreateEnterGamemode(struct unk_struct *unpackedArgs, struct unk_struct2 *gam
     }
 
     if (!err) {
-        unpackedArgs->unk5 &= ~(0x2);
+        members->unk5 &= ~(0x2);
         ret = sceNetConfigUpInterface(g_WifiAdapter4);
         if (ret < 0) {
-            ret = sceNetConfigSetIfEventFlag(g_WifiAdapter4, unpackedArgs->eventFlags, SCE_NET_ADHOCCTL_EVENT_DEVICE_UP);
+            ret = sceNetConfigSetIfEventFlag(g_WifiAdapter4, members->eventFlags,
+                                             SCE_NET_ADHOCCTL_EVENT_DEVICE_UP);
             if (ret < 0) {
                 err = 1;
             }
@@ -752,12 +753,12 @@ s32 CreateEnterGamemode(struct unk_struct *unpackedArgs, struct unk_struct2 *gam
             ret = gameModeData->unk21;
             if ((ret & 1) == 0) {
                 sceKernelMemset(ssid, 0, 33);
-                ret = MemsetAndBuildGameModeSSID(unpackedArgs, ssid);
+                ret = MemsetAndBuildGameModeSSID(members, ssid);
                 if (ret >= 0) {
                     gameModeData->ssid_len = ret;
                     sceKernelMemcpy(gameModeData->ssid, ssid, ret & 0xff);
                     ret = GameModeParseBeaconFrame(gameModeData, &channel, &unk2);
-                    tmp = WaitAndHandleEvent(unpackedArgs);
+                    tmp = WaitAndHandleEvent(members);
                     // Check if we got a network error
                     if ((tmp << 4) >> 0x14 != SCE_ERROR_FACILITY_NETWORK) {
                         if (ret >= 0) {
@@ -802,15 +803,15 @@ s32 CreateEnterGamemode(struct unk_struct *unpackedArgs, struct unk_struct2 *gam
                         unk = 0;
 
                         // Seems to scan for a network specifically, or set parameters to create a network?
-                        ret = sceNet_lib_03164B12(g_WifiAdapter4, &createData, unk);
+                        ret = sceNet_lib_CreateNetwork(g_WifiAdapter4, &createData, unk);
 
-                        tmp = WaitAndHandleEvent(unpackedArgs);
+                        tmp = WaitAndHandleEvent(members);
                         if ((tmp << 4) >> 0x14 != SCE_ERROR_FACILITY_NETWORK) {
                             if (ret >= 0) {
-                                ret = ScanAndConnect(unpackedArgs);
+                                ret = ScanAndConnect(members);
                                 // Why twice
                                 if (ret >= 0) {
-                                    WaitAndHandleEvent(unpackedArgs);
+                                    WaitAndHandleEvent(members);
                                     if (ret < 0) {
                                         err = 1;
                                     }
@@ -826,7 +827,7 @@ s32 CreateEnterGamemode(struct unk_struct *unpackedArgs, struct unk_struct2 *gam
                             ret = sceUtilityGetSystemParamString(SYSTEMPARAM_STRING_NICKNAME, nickname,
                                                                  sizeof(nickname));
                             if (ret >= 0) {
-                                ret = WaitAndHandleEvent(unpackedArgs);
+                                ret = WaitAndHandleEvent(members);
                                 if (ret < 0) {
                                     err = 1;
                                 }
@@ -960,7 +961,7 @@ s32 CreateEnterGamemode(struct unk_struct *unpackedArgs, struct unk_struct2 *gam
                                                     unk3.unk3 = (1000 / gameModeData->beaconPeriod) + 1;
 
                                                     ret = sceWlanDrv_lib_2D0FAE4E(&unk3);
-                                                    tmp = WaitAndHandleEvent(unpackedArgs);
+                                                    tmp = WaitAndHandleEvent(members);
                                                     if ((ret >= 0) && (tmp >= 0)) {
                                                         // Host mac?
                                                         sceKernelMemcpy(&gameModeData->multiCastMacAddress,
@@ -989,11 +990,11 @@ s32 CreateEnterGamemode(struct unk_struct *unpackedArgs, struct unk_struct2 *gam
 
                                                         gameModeData->amountOfPlayers = tmp;
 
-                                                        tmp = WaitAndHandleEvent(unpackedArgs);
+                                                        tmp = WaitAndHandleEvent(members);
                                                         if ((tmp << 4) >> 0x14 != SCE_ERROR_FACILITY_NETWORK) {
                                                             if (ret >= 0) {
-                                                                unpackedArgs->connectionState = ConnectionState_GameMode;
-                                                                unpackedArgs->channel = gameModeData->channel;
+                                                                members->connectionState = ConnectionState_GameMode;
+                                                                members->channel = gameModeData->channel;
                                                             } else {
                                                                 err = 1;
                                                             }
@@ -1092,7 +1093,7 @@ int GameModeReceiveSpecifiedAmountOfData(struct unk_struct2 *gameModeData, s32 u
 }
 
 // This runs through the tags given in CreateEnterGameMode, gives the data for a given tag
-static u8* GetGameModeDataSizeForTag(char tag, u8* dataPtr, int gameModeDataSize, u32* destination) {
+static u8 *GetGameModeDataSizeForTag(char tag, u8 *dataPtr, int gameModeDataSize, u32 *destination) {
     u8 charValue;
     u8 *workPtr;
     u8 *endDataPtr;
@@ -1110,8 +1111,8 @@ static u8* GetGameModeDataSizeForTag(char tag, u8* dataPtr, int gameModeDataSize
             dataPtr = workPtr + 2;
 
             // If we have less than 2 bytes to go, we apparently return
-            if ((int)endDataPtr - (int)workPtr < 2) {
-                return (u8 *)0x0;
+            if ((int) endDataPtr - (int) workPtr < 2) {
+                return (u8 *) 0x0;
             }
 
             // Apparently we now copy 2 bytes into shortValue
@@ -1121,8 +1122,8 @@ static u8* GetGameModeDataSizeForTag(char tag, u8* dataPtr, int gameModeDataSize
             shortValue = pspWsbh(shortValue);
 
             // Data left always needs to be bigger than the given value on that location
-            if ((int)endDataPtr - (int)dataPtr < (int)shortValue) {
-                return (u8 *)0x0;
+            if ((int) endDataPtr - (int) dataPtr < (int) shortValue) {
+                return (u8 *) 0x0;
             }
 
             // We stop when the value given matches our first parameter
@@ -1139,7 +1140,7 @@ static u8* GetGameModeDataSizeForTag(char tag, u8* dataPtr, int gameModeDataSize
             workPtr = dataPtr + 1;
         }
     }
-    return (u8 *)0x0;
+    return (u8 *) 0x0;
 }
 
 static s32 HandleJoinGameModeError(s32 ret, s32 sockId, struct unk_struct2 *gameModeData) {
@@ -1167,7 +1168,7 @@ static s32 HandleJoinGameModeError(s32 ret, s32 sockId, struct unk_struct2 *game
 }
 
 // 46ac
-s32 JoinGameMode(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeData) {
+s32 JoinGameMode(struct AdhocCtl_Members *members, struct unk_struct2 *gameModeData) {
     s32 ret;
     u32 tagSize;
     char unk2;
@@ -1181,7 +1182,7 @@ s32 JoinGameMode(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeDa
     struct CreateJoinData joinData;
     struct ScanParams scanParams;
     struct ScanData *scanPtr;
-    u8* dataPtr;
+    u8 *dataPtr;
     s32 sockId = -1;
     s32 tmp;
     s32 tmp2;
@@ -1189,7 +1190,7 @@ s32 JoinGameMode(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeDa
     s32 gameModeDataSize;
     u32 timeLeftUs;
 
-    if (unpackedArgs->connectionState != ConnectionState_Disconnected) {
+    if (members->connectionState != ConnectionState_Disconnected) {
         return SCE_ERROR_NET_ADHOCCTL_ALREADY_CONNECTED;
     }
 
@@ -1228,10 +1229,10 @@ s32 JoinGameMode(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeDa
         sceKernelDelayThread(1000000);
     }
 
-    unpackedArgs->unk5 &= ~(0x2);
+    members->unk5 &= ~(0x2);
     ret = sceNetConfigUpInterface(g_WifiAdapter4);
     if (ret < 0) {
-        ret = sceNetConfigSetIfEventFlag(g_WifiAdapter4, unpackedArgs->eventFlags, SCE_NET_ADHOCCTL_EVENT_DEVICE_UP);
+        ret = sceNetConfigSetIfEventFlag(g_WifiAdapter4, members->eventFlags, SCE_NET_ADHOCCTL_EVENT_DEVICE_UP);
         if (ret < 0) {
             return HandleJoinGameModeError(ret, sockId, gameModeData);
         }
@@ -1243,7 +1244,7 @@ s32 JoinGameMode(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeDa
     } else {
         if ((gameModeData->unk21 & 1) == 0) {
             sceKernelMemset(ssid, 0, 33);
-            ret = MemsetAndBuildGameModeSSID(unpackedArgs, ssid);
+            ret = MemsetAndBuildGameModeSSID(members, ssid);
             if (ret < 0) {
                 return HandleJoinGameModeError(ret, sockId, gameModeData);
             }
@@ -1284,7 +1285,7 @@ s32 JoinGameMode(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeDa
 
                 ret = sceNet_lib_ScanNetworks(g_WifiAdapter, &scanParams, &bufferSize,
                                               (struct ScanData *) g_ScanBuffer, (u32 *) &unk2);
-                tmp = WaitAndHandleEvent(unpackedArgs);
+                tmp = WaitAndHandleEvent(members);
                 if ((tmp << 4) >> 0x14 == SCE_ERROR_FACILITY_NETWORK) {
                     break;
                 }
@@ -1331,14 +1332,14 @@ s32 JoinGameMode(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeDa
 
                         joinData.unk2 = 1;
                         unk2 = 0;
-                        ret = sceNet_lib_389728AB(g_WifiAdapter4, &joinData, (char*) &tagSize);
-                        tmp = WaitAndHandleEvent(unpackedArgs);
+                        ret = sceNet_lib_JoinNetwork(g_WifiAdapter4, &joinData, (char *) &tagSize);
+                        tmp = WaitAndHandleEvent(members);
                         if ((tmp << 4) >> 0x14 != SCE_ERROR_FACILITY_NETWORK) {
                             if (ret >= 0) {
-                                ret = ScanAndConnect(unpackedArgs);
+                                ret = ScanAndConnect(members);
                                 // Why twice
                                 if (ret >= 0) {
-                                    WaitAndHandleEvent(unpackedArgs);
+                                    WaitAndHandleEvent(members);
                                     if (ret < 0) {
                                         return HandleJoinGameModeError(ret, sockId, gameModeData);
                                     }
@@ -1356,7 +1357,7 @@ s32 JoinGameMode(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeDa
                                                              nickname,
                                                              sizeof(nickname));
                         if (ret >= 0) {
-                            ret = WaitAndHandleEvent(unpackedArgs);
+                            ret = WaitAndHandleEvent(members);
                             if (ret < 0) {
                                 return HandleJoinGameModeError(ret, sockId, gameModeData);
                             }
@@ -1451,7 +1452,8 @@ s32 JoinGameMode(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeDa
                             } else {
                                 // Would this be 0x2F for Bomberman? PSPLink says yes!
                                 ret = GameModeReceiveSpecifiedAmountOfData(gameModeData, (gameModeDataSize < 0x3fb),
-                                                                           firstSystemTime, sockId, &g_GameModeArea.gameModeDataTag1,
+                                                                           firstSystemTime, sockId,
+                                                                           &g_GameModeArea.gameModeDataTag1,
                                                                            (s32) gameModeDataSize);
                                 if (ret < 0) {
                                     return HandleJoinGameModeError(ret, sockId, gameModeData);
@@ -1464,7 +1466,8 @@ s32 JoinGameMode(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeDa
                                 }
 
                                 // Tag 1 is probably a pointer to the playerData
-                                dataPtr = GetGameModeDataSizeForTag(1, &g_GameModeArea.gameModeDataTag1, gameModeDataSize, &tagSize);
+                                dataPtr = GetGameModeDataSizeForTag(1, &g_GameModeArea.gameModeDataTag1,
+                                                                    gameModeDataSize, &tagSize);
                                 if (dataPtr == 0) {
                                     ret = SCE_ERROR_NET_ADHOCCTL_GAMEMODE_COULD_NOT_OBTAIN_PLAYERDATA;
                                     return HandleJoinGameModeError(ret, sockId, gameModeData);
@@ -1479,7 +1482,7 @@ s32 JoinGameMode(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeDa
                                 gameModeData->playerDataSize = (s16) tagSize;
                                 if (gameModeData->playerDataSize != 0) {
                                     // Now that we have the size, go grab all the playerdata
-                                    sceKernelMemcpy(&gameModeData->playerData,dataPtr,
+                                    sceKernelMemcpy(&gameModeData->playerData, dataPtr,
                                                     gameModeData->playerDataSize);
                                 }
 
@@ -1503,7 +1506,8 @@ s32 JoinGameMode(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeDa
                                 if (0 < gameModeData->amountOfPlayers) {
                                     for (tmp = 0; tmp < gameModeData->amountOfPlayers; tmp++) {
                                         sceKernelMemcpy(gameModeData->playerMacs, dataPtr +
-                                                                 (tmp * (sizeof(MacAddress))), sizeof(MacAddress));
+                                                                                  (tmp * (sizeof(MacAddress))),
+                                                        sizeof(MacAddress));
 
                                         // I hope this actually increases the pointer
                                         dataPtr += sizeof(MacAddress);
@@ -1519,13 +1523,13 @@ s32 JoinGameMode(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeDa
                                     return HandleJoinGameModeError(ret, sockId, gameModeData);
                                 }
 
-                                sceKernelMemcpy(&gameModeData->unk12,dataPtr,2);
-                                gameModeData->unk12 = (s16) pspWsbh((u32)gameModeData->unk12);
+                                sceKernelMemcpy(&gameModeData->unk12, dataPtr, 2);
+                                gameModeData->unk12 = (s16) pspWsbh((u32) gameModeData->unk12);
 
                                 // Tag 4 is Unknown so far, expects size 1
                                 dataPtr = GetGameModeDataSizeForTag(4, &g_GameModeArea.gameModeDataTag1,
                                                                     gameModeDataSize, &tagSize);
-                                if ((dataPtr == (u8 *)0x0) || (tagSize != 1)) {
+                                if ((dataPtr == (u8 *) 0x0) || (tagSize != 1)) {
                                     ret = SCE_ERROR_NET_ADHOCCTL_GAMEMODE_COULD_NOT_OBTAIN_TAG4;
                                     return HandleJoinGameModeError(ret, sockId, gameModeData);
                                 }
@@ -1535,7 +1539,7 @@ s32 JoinGameMode(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeDa
                                 dataPtr = GetGameModeDataSizeForTag(5, &g_GameModeArea.gameModeDataTag1,
                                                                     gameModeDataSize, &tagSize);
 
-                                if ((dataPtr == (u8 *)0x0) || (tagSize != 1)) {
+                                if ((dataPtr == (u8 *) 0x0) || (tagSize != 1)) {
                                     ret = SCE_ERROR_NET_ADHOCCTL_GAMEMODE_COULD_NOT_OBTAIN_TAG5;
                                     return HandleJoinGameModeError(ret, sockId, gameModeData);
                                 }
@@ -1556,7 +1560,7 @@ s32 JoinGameMode(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeDa
                                 unk3.unk3 = (1000 / gameModeData->beaconPeriod) + 1;
 
                                 ret = sceWlanDrv_lib_2D0FAE4E(&unk3);
-                                tmp = WaitAndHandleEvent(unpackedArgs);
+                                tmp = WaitAndHandleEvent(members);
                                 if ((ret >= 0) && (tmp >= 0)) {
                                     // Host mac?
                                     sceKernelMemcpy(&gameModeData->multiCastMacAddress,
@@ -1570,14 +1574,13 @@ s32 JoinGameMode(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeDa
 
                                     // This seems to get our own player
                                     if (gameModeData->amountOfPlayers > 1) {
-                                        dataPtr = (u8*) gameModeData->playerMacs;
+                                        dataPtr = (u8 *) gameModeData->playerMacs;
                                         while (tmp < gameModeData->amountOfPlayers) {
                                             dataPtr += (sizeof(MacAddress));
 
                                             // We stop if we found ourselves apparently
-                                            if (sceNetMemcmp((const char*)dataPtr,
-                                                                  (const char*)macAddress,6) == 0)
-                                            {
+                                            if (sceNetMemcmp((const char *) dataPtr,
+                                                             (const char *) macAddress, 6) == 0) {
                                                 break;
                                             }
                                             tmp++;
@@ -1588,7 +1591,7 @@ s32 JoinGameMode(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeDa
 
                                     // I think this pushes it to the left of the short
                                     // currentMac points to the mac corresponding to this PSP
-                                    *(char *)(gameModeData->currentMac + 1) = (s8) tmp;
+                                    *(char *) (gameModeData->currentMac + 1) = (s8) tmp;
 
                                     // Why does it need this
                                     *((char *) &gameModeData->unk14) =
@@ -1604,9 +1607,9 @@ s32 JoinGameMode(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeDa
                                     ret = sceNet_lib_0D633F53(g_WifiAdapter4, &gameModeData->unk,
                                                               &gameModeData->playerMacs[0], &tmp2);
 
-                                    gameModeData->playerDataSize = (s16)tmp;
+                                    gameModeData->playerDataSize = (s16) tmp;
 
-                                    tmp = WaitAndHandleEvent(unpackedArgs);
+                                    tmp = WaitAndHandleEvent(members);
                                     if ((tmp << 4) >> 0x14 != SCE_ERROR_FACILITY_NETWORK) {
                                         if (tmp < 0) {
                                             sockId = -1;
@@ -1617,18 +1620,18 @@ s32 JoinGameMode(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeDa
                                             return HandleJoinGameModeError(ret, sockId, gameModeData);
                                         }
 
-                                        unpackedArgs->connectionState = ConnectionState_GameMode;
-                                        unpackedArgs->channel = gameModeData->channel;
+                                        members->connectionState = ConnectionState_GameMode;
+                                        members->channel = gameModeData->channel;
 
                                         if (sockId >= 0) {
                                             sceNetAdhocPtpClose(sockId, 0);
                                         }
 
-                                        sceNetAdhocAuth_lib_72AAC6D3(0,0);
+                                        sceNetAdhocAuth_lib_72AAC6D3(0, 0);
                                         sceNetAdhocAuth_lib_2E6AA271();
-                                        sceNetConfigSetIfEventFlag(g_WifiAdapter4,0,0);
+                                        sceNetConfigSetIfEventFlag(g_WifiAdapter4, 0, 0);
                                         tmp = 0;
-                                        sceNet_lib_DA02F383(g_WifiAdapter4,&tmp);
+                                        sceNet_lib_DA02F383(g_WifiAdapter4, &tmp);
                                         if ((gameModeData->unk21 & 2) != 0) {
                                             sceWlanDrv_lib_5BAA1FE5(0);
                                             if (g_GameModeArea.unk1 >= 0) {
@@ -1658,7 +1661,7 @@ s32 JoinGameMode(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeDa
     return ret;
 }
 
-s32 GetChannelAndSSID(struct unk_struct *unpackedArgs, char *ssid, u32 *channel) {
+s32 GetChannelAndSSID(struct AdhocCtl_Members *members, char *ssid, u32 *channel) {
     s32 adhocChannel;
     s32 ret;
 
@@ -1674,21 +1677,21 @@ s32 GetChannelAndSSID(struct unk_struct *unpackedArgs, char *ssid, u32 *channel)
 
         ret = SCE_ERROR_NET_ADHOCCTL_CANNOT_OBTAIN_CHANNEL;
         if (*channel < 12) {
-            ret = BuildSSID(unpackedArgs, ssid, ADHOC_SUBTYPE_NORMALMODE, unpackedArgs->ssidSuffix);
+            ret = BuildSSID(members, ssid, ADHOC_SUBTYPE_NORMALMODE, members->ssidSuffix);
         }
     }
     return ret;
 }
 
 
-s32 BuildSSID(struct unk_struct *unpackedArgs, char *ssid, char adhocSubType, char *ssidSuffix) {
+s32 BuildSSID(struct AdhocCtl_Members *members, char *ssid, char adhocSubType, char *ssidSuffix) {
     struct ProductStruct *product;
     int i;
     char adhocTypeStr;
     char *ssidSuffixPtr;
     int ret;
 
-    product = &unpackedArgs->product;
+    product = &members->product;
     adhocTypeStr = 'A';
     if (product->adhocId != SCE_NET_ADHOCCTL_ADHOCTYPE_NORMAL) {
         adhocTypeStr = 'X';
@@ -1726,7 +1729,7 @@ s32 BuildSSID(struct unk_struct *unpackedArgs, char *ssid, char adhocSubType, ch
     return ret;
 }
 
-void Disconnect(struct unk_struct *unpackedArgs) {
+void Disconnect(struct AdhocCtl_Members *members) {
     s32 unk;
 
     sceNetAdhocAuth_lib_2E6AA271();
@@ -1737,11 +1740,11 @@ void Disconnect(struct unk_struct *unpackedArgs) {
     sceNet_lib_DA02F383(g_WifiAdapter, &unk);
     sceNetConfigDownInterface(g_WifiAdapter);
     sceWlanDevDetach();
-    unpackedArgs->connectionState = ConnectionState_Disconnected;
-    unpackedArgs->unk3 = 0;
+    members->connectionState = ConnectionState_Disconnected;
+    members->unk3 = 0;
 }
 
-s32 ScanAndConnect(struct unk_struct *unpackedArgs) {
+s32 ScanAndConnect(struct AdhocCtl_Members *members) {
     u32 err = 0;
     s32 lockRes = 1;
     s32 tmp;
@@ -1761,11 +1764,11 @@ s32 ScanAndConnect(struct unk_struct *unpackedArgs) {
 
     i = 0;
     ret = SCE_ERROR_NET_ADHOCCTL_ALREADY_CONNECTED;
-    if (unpackedArgs->connectionState == ConnectionState_Disconnected) {
+    if (members->connectionState == ConnectionState_Disconnected) {
         ret = SCE_ERROR_NET_ADHOCCTL_WLAN_SWITCH_DISABLED;
         if (sceWlanGetSwitchState() != 0) {
 
-            unpackedArgs->connectionState = ConnectionState_Unknown;
+            members->connectionState = ConnectionState_Unknown;
 
             while (1) {
                 i++;
@@ -1775,13 +1778,13 @@ s32 ScanAndConnect(struct unk_struct *unpackedArgs) {
 
                 if ((ret >> 0x1f & (ret != (s32) SCE_ERROR_NET_WLAN_DEVICE_NOT_READY))) {
                     err = 1;
-                } else if (unpackedArgs->timeout <= i) {
+                } else if (members->timeout <= i) {
                     ret = SCE_ERROR_NET_ADHOCCTL_TIMEOUT;
                     err = 1;
                 }
 
                 if (err) {
-                    unpackedArgs->connectionState = ConnectionState_Disconnected;
+                    members->connectionState = ConnectionState_Disconnected;
                     break;
                 }
 
@@ -1791,7 +1794,7 @@ s32 ScanAndConnect(struct unk_struct *unpackedArgs) {
             if (!err) {
                 ret = sceNetConfigUpInterface(g_WifiAdapter);
                 if (ret >= 0) {
-                    ret = sceNetConfigSetIfEventFlag(g_WifiAdapter, unpackedArgs->eventFlags,
+                    ret = sceNetConfigSetIfEventFlag(g_WifiAdapter, members->eventFlags,
                                                      SCE_NET_ADHOCCTL_EVENT_DEVICE_UP);
 
                     if (ret >= 0) {
@@ -1799,7 +1802,7 @@ s32 ScanAndConnect(struct unk_struct *unpackedArgs) {
                         if (sceWlanGetSwitchState() != 0) {
                             lockRes = sceKernelLockLwMutex(&g_Mutex, 1);;
                             sceKernelMemset(&params, 0, (sizeof(params)));
-                            sceKernelMemset(unpackedArgs->unk7, 0, (sizeof(unpackedArgs->unk7)));
+                            sceKernelMemset(&members->scanData, 0, (sizeof(struct ScanData) * MAX_SCAN_NETWORKS));
 
                             params.type = BSS_TYPE_INDEPENDENT;
 
@@ -1830,7 +1833,7 @@ s32 ScanAndConnect(struct unk_struct *unpackedArgs) {
                                     params.channels[2] = 1;
                                 }
 
-                                unpackedArgs->unk2 = 1920;
+                                members->unk2 = 1920;
 
                                 params.unk4 = 1;
                                 params.unk5 = 0;
@@ -1839,9 +1842,9 @@ s32 ScanAndConnect(struct unk_struct *unpackedArgs) {
 
                                 unk2 = 0;
 
-                                ret = sceNet_lib_ScanNetworks(g_WifiAdapter, &params, &unpackedArgs->unk2,
-                                                              (struct ScanData *) unpackedArgs->unk7, &unk2);
-                                tmp = WaitAndHandleEvent(unpackedArgs);
+                                ret = sceNet_lib_ScanNetworks(g_WifiAdapter, &params, &members->unk2,
+                                                              &members->scanData[0], &unk2);
+                                tmp = WaitAndHandleEvent(members);
                                 if ((tmp << 4) >> 0x14 == SCE_ERROR_FACILITY_NETWORK) {
                                     ret = tmp;
                                 }
@@ -1852,10 +1855,10 @@ s32 ScanAndConnect(struct unk_struct *unpackedArgs) {
                     sceNetConfigDownInterface(g_WifiAdapter);
                 }
                 sceWlanDevDetach();
-                unpackedArgs->connectionState = ConnectionState_Disconnected;
+                members->connectionState = ConnectionState_Disconnected;
             }
 
-            unpackedArgs->unk3 = 0;
+            members->unk3 = 0;
             if (!lockRes) {
                 sceKernelUnlockLwMutex(&g_Mutex, 1);
             }
@@ -1864,15 +1867,14 @@ s32 ScanAndConnect(struct unk_struct *unpackedArgs) {
     return ret;
 }
 
-void DisconnectGameMode(struct unk_struct *unpackedArgs, struct unk_struct2 *gameModeData)
-{
+void DisconnectGameMode(struct AdhocCtl_Members *members, struct unk_struct2 *gameModeData) {
     s32 unk;
 
     unk = 0;
-    sceNet_lib_DA02F383(g_WifiAdapter4,&unk);
-    sceNetAdhocAuth_lib_72AAC6D3(0,0);
+    sceNet_lib_DA02F383(g_WifiAdapter4, &unk);
+    sceNetAdhocAuth_lib_72AAC6D3(0, 0);
     sceNetAdhocAuth_lib_2E6AA271();
-    sceNetConfigSetIfEventFlag(g_WifiAdapter4,0,0);
+    sceNetConfigSetIfEventFlag(g_WifiAdapter4, 0, 0);
     unk = 0;
     sceNet_lib_DA02F383(g_WifiAdapter4, &unk);
     if ((gameModeData->unk21 & 2) != 0) {
@@ -1883,75 +1885,74 @@ void DisconnectGameMode(struct unk_struct *unpackedArgs, struct unk_struct2 *gam
     }
     sceNetConfigDownInterface(g_WifiAdapter4);
     sceWlanDevDetach();
-    unpackedArgs->connectionState = ConnectionState_Disconnected;
-    unpackedArgs->unk3 = 0;
+    members->connectionState = ConnectionState_Disconnected;
+    members->unk3 = 0;
 }
 
-inline int WaitFlag(struct unk_struct *unpackedArgs, u32 *outBits, s32 *connectionState) {
+inline int WaitFlag(struct AdhocCtl_Members *members, u32 *outBits, s32 *connectionState) {
     u32 tmp = 0;
     while (1) {
-        sceKernelWaitEventFlag(unpackedArgs->eventFlags, 0xFFF, 1, outBits, 0);
+        sceKernelWaitEventFlag(members->eventFlags, 0xFFF, 1, outBits, 0);
 
         if ((*outBits & 0x200) != 0) {
-            sceKernelClearEventFlag(unpackedArgs->eventFlags, ~0x200);
-            if (unpackedArgs->connectionState == ConnectionState_Connected) {
-                Disconnect(unpackedArgs);
+            sceKernelClearEventFlag(members->eventFlags, ~0x200);
+            if (members->connectionState == ConnectionState_Connected) {
+                Disconnect(members);
             } else {
-                if (unpackedArgs->connectionState == ConnectionState_GameMode) {
-                    DisconnectGameMode(unpackedArgs, &g_Unk2);
+                if (members->connectionState == ConnectionState_GameMode) {
+                    DisconnectGameMode(members, &g_Unk2);
                 }
             }
             return 0;
         }
 
         if ((*outBits & SCE_NET_ADHOCCTL_EVENT_DEVICE_UP) == 0) break;
-        sceKernelClearEventFlag(unpackedArgs->eventFlags, ~SCE_NET_ADHOCCTL_EVENT_DEVICE_UP);
-        *connectionState = unpackedArgs->connectionState;
+        sceKernelClearEventFlag(members->eventFlags, ~SCE_NET_ADHOCCTL_EVENT_DEVICE_UP);
+        *connectionState = members->connectionState;
         if ((*connectionState == ConnectionState_Connected) ||
-            (*connectionState == ConnectionState_Unknown2) ||
+            (*connectionState == ConnectionState_Discovering) ||
             (*connectionState == ConnectionState_Unknown3)) {
-            // iVar2 = FUN_00003cd8(unpackedArgs);
+            // iVar2 = FUN_00003cd8(members);
             if (*connectionState >= 0) {
-                if (unpackedArgs->connectionState == ConnectionState_Unknown2) {
-                    // FUN_0000233c(unpackedArgs);
+                if (members->connectionState == ConnectionState_Discovering) {
+                    // FUN_0000233c(members);
                     //usedInFuncBufThing = 6;
                     //FUN_00002600(uVar3, 0);
-                    tmp = unpackedArgs->unk5;
+                    tmp = members->unk5;
                 } else {
-                    if (unpackedArgs->connectionState == ConnectionState_Unknown3) {
-                        // FUN_0000233c(unpackedArgs);
+                    if (members->connectionState == ConnectionState_Unknown3) {
+                        // FUN_0000233c(members);
                         //usedInFuncBufThing = 7;
-                        if ((unpackedArgs->unk5 & 0x10) != 0) {
+                        if ((members->unk5 & 0x10) != 0) {
                             //usedInFuncBufThing = 8;
-                            unpackedArgs->unk5 = unpackedArgs->unk5 & 0xf;
+                            members->unk5 = members->unk5 & 0xf;
                         }
                         //FUN_00002600(uVar3, 0);
                     }
-                    tmp = unpackedArgs->unk5;
+                    tmp = members->unk5;
                 }
                 if ((tmp & 0x10) != 0) {
-                    unpackedArgs->unk5 = tmp & 0xf;
+                    members->unk5 = tmp & 0xf;
                 }
                 break;
             }
-            //FUN_000022b8(unpackedArgs);
+            //FUN_000022b8(members);
         } else {
-            if ((*connectionState != ConnectionState_GameMode) /* || (iVar2 = FUN_00003cd8(param_2) && connectionState >= 0 )*/) {
+            if ((*connectionState !=
+                 ConnectionState_GameMode) /* || (iVar2 = FUN_00003cd8(param_2) && connectionState >= 0 )*/) {
                 break;
             }
-            //FUN_0000554c(unpackedArgs, g_Unk2);
+            //FUN_0000554c(members, g_Unk2);
         }
         RunAdhocctlHandlers(0, /*actInThread*/ 0);
 
         // Clears most flags?
-        unpackedArgs->unk5 = unpackedArgs->unk5 & 0xe0000000;
+        members->unk5 = members->unk5 & 0xe0000000;
     }
     return 1;
 }
 
-int RunScanOnChannel1(struct unk_struct *unpackedArgs)
-
-{
+int RunScanOnChannel1(struct AdhocCtl_Members *members) {
     s32 tmp;
     s32 ret;
     s32 paramSize;
@@ -1960,12 +1961,12 @@ int RunScanOnChannel1(struct unk_struct *unpackedArgs)
     struct ScanData scanData;
     struct ScanParams params;
     paramSize = sizeof(struct ScanParams);
-    
+
     tmp = sceWlanGetSwitchState();
     ret = SCE_ERROR_NET_ADHOCCTL_WLAN_SWITCH_DISABLED;
     if (tmp != 0) {
         sceKernelMemset(&params, 0, sizeof(struct ScanParams));
-        sceKernelMemset(&scanData,0,sizeof(struct ScanData));
+        sceKernelMemset(&scanData, 0, sizeof(struct ScanData));
 
         // Apparently we only scan on channel 1 for whatever this function does
         params.channels[0] = 1;
@@ -1982,9 +1983,9 @@ int RunScanOnChannel1(struct unk_struct *unpackedArgs)
         params.unk5 = 0;
         unk = 0;
         sceNet_lib_ScanNetworks(g_WifiAdapter, &params, &paramSize, &scanData, &unk);
-        tmp = WaitAndHandleEvent(unpackedArgs);
+        tmp = WaitAndHandleEvent(members);
 
-        if(((tmp << 4) >> 0x14) != SCE_ERROR_FACILITY_NETWORK) {
+        if (((tmp << 4) >> 0x14) != SCE_ERROR_FACILITY_NETWORK) {
             ret = 0;
         }
     }
@@ -1992,7 +1993,7 @@ int RunScanOnChannel1(struct unk_struct *unpackedArgs)
 }
 
 
-s32 Discover(struct unk_struct *unpackedArgs) {
+s32 Create(struct AdhocCtl_Members *members) {
     s32 ret;
     s32 tmp = 0;
     s32 clocks[5];
@@ -2005,7 +2006,7 @@ s32 Discover(struct unk_struct *unpackedArgs) {
     ret = 0;
 
     // We want to start out disconnected
-    if (unpackedArgs->connectionState != ConnectionState_Disconnected) {
+    if (members->connectionState != ConnectionState_Disconnected) {
         return SCE_ERROR_NET_ADHOCCTL_ALREADY_CONNECTED;
     }
 
@@ -2026,7 +2027,7 @@ s32 Discover(struct unk_struct *unpackedArgs) {
             return ret;
         }
 
-        if (unpackedArgs->timeout <= (s32) tmp) {
+        if (members->timeout <= (s32) tmp) {
             return SCE_ERROR_NET_ADHOCCTL_TIMEOUT;
         }
 
@@ -2034,22 +2035,22 @@ s32 Discover(struct unk_struct *unpackedArgs) {
     }
 
     // Flag 2 seems to be cleared here
-    unpackedArgs->unk5 &= ~(0x2);
+    members->unk5 &= ~(0x2);
 
     ret = sceNetConfigUpInterface(g_WifiAdapter);
     if (ret >= 0) {
-        ret = sceNetConfigSetIfEventFlag(g_WifiAdapter, unpackedArgs->eventFlags, SCE_NET_ADHOCCTL_EVENT_DEVICE_UP);
+        ret = sceNetConfigSetIfEventFlag(g_WifiAdapter, members->eventFlags, SCE_NET_ADHOCCTL_EVENT_DEVICE_UP);
         if (ret >= 0) {
-            ret = RunScanOnChannel1(unpackedArgs);
+            ret = RunScanOnChannel1(members);
             if (ret >= 0) {
                 sceKernelMemset(ssid, 0, sizeof(ssid));
-                tmp = GetChannelAndSSID(unpackedArgs, ssid, &channel);
+                tmp = GetChannelAndSSID(members, ssid, &channel);
                 if (tmp >= 0) {
-                    ret = WaitAndHandleEvent(unpackedArgs);
+                    ret = WaitAndHandleEvent(members);
                     if (ret >= 0) {
                         sceKernelMemset(&createJoinData, 0, sizeof(struct CreateJoinData));
                         sceKernelMemcpy(createJoinData.ssid, ssid, sizeof(createJoinData.ssid));
-                        createJoinData.ssid_len =  tmp;
+                        createJoinData.ssid_len = tmp;
                         createJoinData.bssType = 2;
                         createJoinData.channel = (char) channel;
                         createJoinData.capabilities = CAPABILITY_SHORT_PREAMBLE +
@@ -2057,22 +2058,22 @@ s32 Discover(struct unk_struct *unpackedArgs) {
                         createJoinData.beaconPeriod = 100;
 
                         unk = 0;
-                        ret = sceNet_lib_03164B12(g_WifiAdapter, &createJoinData, (char*)&unk);
-                        tmp = WaitAndHandleEvent(unpackedArgs);
+                        ret = sceNet_lib_CreateNetwork(g_WifiAdapter, &createJoinData, (char *) &unk);
+                        tmp = WaitAndHandleEvent(members);
 
                         if (((tmp << 4) >> 0x14) != SCE_ERROR_FACILITY_NETWORK) {
                             if (ret >= 0) {
-                                ret = RunScanOnChannel1(unpackedArgs);
+                                ret = RunScanOnChannel1(members);
                                 if (ret >= 0) {
-                                    ret = WaitAndHandleEvent(unpackedArgs);
+                                    ret = WaitAndHandleEvent(members);
 
                                     if (ret >= 0) {
                                         ret = sceUtilityGetSystemParamString(SYSTEMPARAM_STRING_NICKNAME,
                                                                              nickname, sizeof(nickname));
 
                                         if (ret >= 0) {
-                                            ret = WaitAndHandleEvent(unpackedArgs);
-                                            if(ret >= 0) {
+                                            ret = WaitAndHandleEvent(members);
+                                            if (ret >= 0) {
                                                 clocks[0] = 1000000;
                                                 clocks[1] = 500000;
                                                 clocks[2] = 5;
@@ -2082,8 +2083,8 @@ s32 Discover(struct unk_struct *unpackedArgs) {
                                                                                        0x2000, clocks, 0x10,
                                                                                        nickname);
                                                 if (ret >= 0) {
-                                                    unpackedArgs->connectionState = ConnectionState_Connected;
-                                                    unpackedArgs->channel = channel;
+                                                    members->connectionState = ConnectionState_Connected;
+                                                    members->channel = channel;
 
                                                     return ret;
                                                 }
@@ -2112,6 +2113,208 @@ s32 Discover(struct unk_struct *unpackedArgs) {
     return ret;
 }
 
+s32 JoinAdhoc(struct AdhocCtl_Members *members) {
+    s32 ret;
+    s32 tmp = 0;
+    s32 selectedNetwork = 0;
+    s32 channel;
+    s32 unk;
+    char nickname[128];
+    s32 clocks[5];
+
+    struct ScanData *curScanData = NULL;
+    struct CreateJoinData createJoinData;
+
+    ret = 0;
+    if (members->connectionState != ConnectionState_Disconnected) {
+        return SCE_ERROR_NET_ADHOCCTL_ALREADY_CONNECTED;
+    }
+    ret = sceWlanGetSwitchState();
+    if (ret == 0) {
+        return SCE_ERROR_NET_ADHOCCTL_WLAN_SWITCH_DISABLED;
+    }
+
+    while (1) {
+        tmp++;
+        ret = sceWlanDevAttach();
+        if (ret == 0 || ret == (s32) SCE_ERROR_NET_WLAN_ALREADY_ATTACHED) {
+            break;
+        }
+
+        // If any error which is not SCE_ERROR_NET_WLAN_DEVICE_NOT_READY, return errorcode
+        if ((ret >> 0x1f) && (ret != (s32) SCE_ERROR_NET_WLAN_DEVICE_NOT_READY)) {
+            return ret;
+        }
+
+        if (members->timeout <= (s32) tmp) {
+            return SCE_ERROR_NET_ADHOCCTL_TIMEOUT;
+        }
+
+        sceKernelDelayThread(1000000);
+    }
+
+    members->unk5 &= ~(0x2);
+    ret = sceNetConfigUpInterface(g_WifiAdapter);
+    if (ret >= 0) {
+        ret = sceNetConfigSetIfEventFlag(g_WifiAdapter, members->eventFlags,
+                                         SCE_NET_ADHOCCTL_EVENT_DEVICE_UP);
+        if (ret >= 0) {
+            ret = SCE_ERROR_NET_ADHOCCTL_NO_SCAN_INFO;
+            if (members != NULL && members->bssid != NULL) {
+
+                for (selectedNetwork = 0; selectedNetwork < MAX_SCAN_NETWORKS; selectedNetwork++) {
+                    curScanData = &members->scanData[selectedNetwork];
+
+                    tmp = sceNetMemcmp(curScanData->bssid, members->bssid, sizeof(MacAddress));
+                    if (tmp == 0) {
+                        break;
+                    }
+                }
+
+                if (tmp != 0) {
+                    ret = SCE_ERROR_NET_ADHOCCTL_NO_SCAN_INFO;
+                } else {
+                    ret = selectedNetwork;
+                }
+
+                if (ret >= 0) {
+                    ret = sceUtilityGetSystemParamInt(SYSTEMPARAM_INT_ADHOC_CHANNEL, &channel);
+                    if (ret >= 0) {
+                        if ((channel == 0) || ((s32) curScanData->channel == channel)) {
+                            ret = sceWlanGetSwitchState();
+                            if (ret == 0) {
+                                ret = SCE_ERROR_NET_ADHOCCTL_WLAN_SWITCH_DISABLED;
+                            } else {
+                                sceKernelMemset(&createJoinData, 0, sizeof(struct CreateJoinData));
+                                sceKernelMemcpy(&createJoinData, curScanData->bssid, 92);
+                                unk = 0;
+
+                                ret = sceNet_lib_JoinNetwork(g_WifiAdapter, &createJoinData, (char *) &unk);
+                                tmp = WaitAndHandleEvent(members);
+                                if ((tmp << 4) >> 0x14 != SCE_ERROR_FACILITY_NETWORK) {
+                                    if (ret >= 0) {
+                                        tmp = WaitAndHandleEvent(members);
+                                        if (ret >= 0) {
+                                            ret = sceUtilityGetSystemParamString(SYSTEMPARAM_STRING_NICKNAME, nickname,
+                                                                                 sizeof(nickname));
+
+                                            if (ret >= 0) {
+                                                tmp = WaitAndHandleEvent(members);
+
+                                                clocks[0] = 1000000;
+                                                clocks[1] = 500000;
+                                                clocks[2] = 5;
+                                                clocks[3] = 30000000;
+                                                clocks[4] = 300000000;
+
+                                                ret = sceNetAdhocAuthCreateStartThread
+                                                        (g_WifiAdapter, 0x30, 0x2000,
+                                                         clocks, 0x10, nickname);
+
+                                                if (ret >= 0) {
+                                                    members->connectionState = ConnectionState_Connected;
+                                                    members->channel = (u32) curScanData->channel;
+                                                }
+
+                                                return ret;
+                                            }
+                                        }
+                                    } else {
+                                        ret = SCE_ERROR_NET_ADHOCCTL_CHANNEL_NOT_MATCH;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    sceNetAdhocAuth_lib_2E6AA271();
+    sceNetConfigSetIfEventFlag(g_WifiAdapter, 0, 0);
+    unk = 0;
+    sceNet_lib_DA02F383(g_WifiAdapter, &unk);
+    sceNetConfigDownInterface(g_WifiAdapter);
+    sceWlanDevDetach();
+
+    return ret;
+}
+
+s32 Discover(struct AdhocCtl_Members* members)
+
+{
+    s32 ret = 0;
+    s32 cnt = 0;
+
+    u32 channel;
+    char ssid[33];
+
+    char unk[40];
+
+    ret = SCE_ERROR_NET_ADHOCCTL_ALREADY_CONNECTED;
+    if (members->connectionState == ConnectionState_Disconnected) {
+        ret = SCE_ERROR_NET_ADHOCCTL_WLAN_SWITCH_DISABLED;
+        if (sceWlanGetSwitchState() != 0) {
+            while (1) {
+                cnt++;
+                ret = sceWlanDevAttach();
+                if (ret == 0 || ret == (s32) SCE_ERROR_NET_WLAN_ALREADY_ATTACHED)
+                {
+                    break;
+                }
+
+                // If any error which is not SCE_ERROR_NET_WLAN_DEVICE_NOT_READY, return errorcode
+                if ((ret >> 0x1f) && (ret != (s32) SCE_ERROR_NET_WLAN_DEVICE_NOT_READY)) {
+                    return ret;
+                }
+
+                if (cnt > members->timeout) {
+                    return SCE_ERROR_NET_ADHOCCTL_TIMEOUT;
+                }
+
+                sceKernelDelayThread(1000000);
+            }
+
+            members->unk5 &= ~(0x2);
+
+            ret = sceNetConfigUpInterface(g_WifiAdapter);
+            if (ret >= 0) {
+                ret = sceNetConfigSetIfEventFlag(g_WifiAdapter, members->eventFlags, SCE_NET_ADHOCCTL_EVENT_DEVICE_UP);
+                if (ret >= 0) {
+                    ret = GetChannelAndSSID(members, ssid, &channel);
+                    if (ret >= 0) {
+                        sceKernelMemset(unk, 0, 40);
+                        unk[4] = 1;
+                        unk[5] = (char) channel;
+                        sceKernelMemcpy(&unk[6], ssid, ret);
+                        ret = sceWlanGetSwitchState();
+                        if (ret != 0) {
+                            ret = WaitAndHandleEvent(members);
+                            if (ret >= 0) {
+                                ret = sceWlanSetHostDiscover(1, (s32) &unk);
+                                if (ret >= 0) {
+                                    members->connectionState = ConnectionState_Discovering;
+                                    members->channel = channel;
+                                    return ret;
+                                }
+                            }
+                        } else {
+                            ret = SCE_ERROR_NET_ADHOCCTL_WLAN_SWITCH_DISABLED;
+                        }
+                    }
+                }
+            }
+
+            sceNetConfigSetIfEventFlag(g_WifiAdapter,0,0);
+            sceNetConfigDownInterface(g_WifiAdapter);
+            sceWlanDevDetach();
+        }
+    }
+
+    return ret;
+}
+
 s32 ThreadFunc(SceSize args, void *argp) {
     // Bypass compiler warning
     (void) (args);
@@ -2121,139 +2324,160 @@ s32 ThreadFunc(SceSize args, void *argp) {
     s32 tmp;
     u32 outBits;
 
-    struct unk_struct *unpackedArgs = (struct unk_struct *) argp;
+    struct AdhocCtl_Members *members = (struct AdhocCtl_Members *) argp;
 
     while (1) {
 
-        if (WaitFlag(unpackedArgs, &outBits, &connectionState) == 0) {
+        if (WaitFlag(members, &outBits, &connectionState) == 0) {
             return 0;
         }
 
-        // Init, maybe connnect?
-        if ((outBits & (1 << 1)) != 0) {
-            sceKernelClearEventFlag(unpackedArgs->eventFlags, ~(1 << 1));
-            connectionState = InitAdhoc(unpackedArgs);
+        // Connect : sceNetAdhocctlConnect Handler
+        if ((outBits & 1) != 0) {
+            sceKernelClearEventFlag(members->eventFlags, ~(1 << 1));
+            connectionState = InitAdhoc(members);
             if (connectionState >= 0) {
                 RunAdhocctlHandlers(SCE_NET_ADHOCCTL_EVENT_CONNECT, 0);
             } else {
-                tmp = WaitAndHandleEvent(unpackedArgs);
+                tmp = WaitAndHandleEvent(members);
                 if (tmp < 0) {
                     connectionState = tmp;
                 }
                 RunAdhocctlHandlers(SCE_NET_ADHOCCTL_EVENT_ERROR, /*actInThread*/ 0);
-                unpackedArgs->unk5 &= ~(0x1);
+                members->unk5 &= ~(0x1);
                 continue;
             }
         }
 
-        // Disconnect
-        if ((outBits & (1 << 2)) != 0) {
-            sceKernelClearEventFlag(unpackedArgs->eventFlags, ~(1 << 2));
-            Disconnect(unpackedArgs);
+        // Disconnect : sceNetAdhocctlDisconnect Handler
+        if ((outBits & (1 << 1)) != 0) {
+            sceKernelClearEventFlag(members->eventFlags, ~(1 << 2));
+            Disconnect(members);
             RunAdhocctlHandlers(SCE_NET_ADHOCCTL_EVENT_DISCONNECT, 0);
         }
 
-        // Scan
-        if ((outBits & (1 << 3)) != 0) {
-            sceKernelClearEventFlag(unpackedArgs->eventFlags, ~(1 << 3));
-            connectionState = ScanAndConnect(unpackedArgs);
+        // Scan : sceNetAdhocctlScan Handler
+        if ((outBits & (1 << 2)) != 0) {
+            sceKernelClearEventFlag(members->eventFlags, ~(1 << 3));
+            connectionState = ScanAndConnect(members);
             if (connectionState >= 0) {
                 RunAdhocctlHandlers(SCE_NET_ADHOCCTL_EVENT_SCAN, 0);
             } else {
-                tmp = WaitAndHandleEvent(unpackedArgs);
+                tmp = WaitAndHandleEvent(members);
                 if (tmp < 0) {
                     connectionState = tmp;
                 }
                 RunAdhocctlHandlers(SCE_NET_ADHOCCTL_EVENT_ERROR, /*actInThread*/ 0);
-                unpackedArgs->unk5 &= ~(0x1);
+                members->unk5 &= ~(0x1);
                 continue;
             }
         }
 
         // This seems to do something with gamemode
-        // GameMode Create game
+        // GameMode Create game : sceNetAdhocctlCreateEnterGameMode Handler
         if ((outBits & (1 << 4)) != 0) {
-            sceKernelClearEventFlag(unpackedArgs->eventFlags, ~(1 << 4));
-            connectionState = CreateEnterGamemode(unpackedArgs, &g_Unk2);
+            sceKernelClearEventFlag(members->eventFlags, ~(1 << 4));
+            connectionState = CreateEnterGamemode(members, &g_Unk2);
             if (connectionState >= 0) {
-                RunAdhocctlHandlers(SCE_NET_ADHOCCTL_EVENT_DEVICE_UP, 0);
+                RunAdhocctlHandlers(SCE_NET_ADHOCCTL_EVENT_GAMEMODE_CONNECT, 0);
             } else {
-                tmp = WaitAndHandleEvent(unpackedArgs);
+                tmp = WaitAndHandleEvent(members);
                 if (tmp < 0) {
                     connectionState = tmp;
                 }
                 RunAdhocctlHandlers(SCE_NET_ADHOCCTL_EVENT_ERROR, /*actInThread*/ 0);
-                unpackedArgs->unk5 &= ~(0x1);
+                members->unk5 &= ~(0x1);
                 continue;
             }
         }
 
-        // GameMode Join game
+        // GameMode Join game : sceNetAdhocctlJoinEnterGameMode Handler
         if ((outBits & (1 << 5)) != 0) {
-            sceKernelClearEventFlag(unpackedArgs->eventFlags, ~0x20);
-            connectionState = JoinGameMode(unpackedArgs, &g_Unk2);
+            sceKernelClearEventFlag(members->eventFlags, ~0x20);
+            connectionState = JoinGameMode(members, &g_Unk2);
             if (connectionState >= 0) {
-                RunAdhocctlHandlers(SCE_NET_ADHOCCTL_EVENT_DEVICE_UP, 0);
+                RunAdhocctlHandlers(SCE_NET_ADHOCCTL_EVENT_GAMEMODE_CONNECT, 0);
             } else {
-                tmp = WaitAndHandleEvent(unpackedArgs);
+                tmp = WaitAndHandleEvent(members);
                 if (tmp < 0) {
                     connectionState = tmp;
                 }
                 RunAdhocctlHandlers(SCE_NET_ADHOCCTL_EVENT_ERROR, /*actInThread*/ 0);
-                unpackedArgs->unk5 &= ~(0x1);
+                members->unk5 &= ~(0x1);
                 continue;
             }
         }
 
-        // GameMode Disconnect
+        // GameMode Disconnect : sceNetAdhocctlExitGameMode Handler
         if ((outBits & (1 << 6)) != 0) {
-            sceKernelClearEventFlag(unpackedArgs->eventFlags, ~(1 << 6));
-            DisconnectGameMode(unpackedArgs, &g_Unk2);
+            sceKernelClearEventFlag(members->eventFlags, ~(1 << 6));
+            DisconnectGameMode(members, &g_Unk2);
 
             RunAdhocctlHandlers(SCE_NET_ADHOCCTL_EVENT_DISCONNECT, /*actInThread*/ 0);
         }
 
-        // Adhocdiscover?
+        // Create: sceNetAdhocctlCreate Handler
         if ((outBits & (1 << 7)) != 0) {
-            sceKernelClearEventFlag(unpackedArgs->eventFlags, ~(1 << 7));
+            sceKernelClearEventFlag(members->eventFlags, ~(1 << 7));
 
-            connectionState = Discover(unpackedArgs);
+            connectionState = Create(members);
             if (connectionState >= 0) {
-                RunAdhocctlHandlers(SCE_NET_ADHOCCTL_EVENT_DEVICE_UP, 0);
+                RunAdhocctlHandlers(SCE_NET_ADHOCCTL_EVENT_CONNECT, /*actInThread*/ 0);
             } else {
-                tmp = WaitAndHandleEvent(unpackedArgs);
+                tmp = WaitAndHandleEvent(members);
                 if (tmp < 0) {
                     connectionState = tmp;
                 }
                 RunAdhocctlHandlers(SCE_NET_ADHOCCTL_EVENT_ERROR, /*actInThread*/ 0);
-                unpackedArgs->unk5 &= ~(0x1);
+                members->unk5 &= ~(0x1);
                 continue;
             }
-
-            RunAdhocctlHandlers(SCE_NET_ADHOCCTL_EVENT_CONNECT, /*actInThread*/ 0);
         }
+
+        // Join adhoc: sceNetAdhocctlJoin Handler
         if ((outBits & (1 << 8)) != 0) {
-            sceKernelClearEventFlag(unpackedArgs->eventFlags, ~(1 << 8));
-            connectionState = FUN_00001b9c(unpackedArgs);
-            //if (connectionState < 0) goto LAB_000038a8;
-            //FUN_00002600(1, 0);
+            sceKernelClearEventFlag(members->eventFlags, ~(1 << 8));
+            connectionState = JoinAdhoc(members);
+            if (connectionState >= 0) {
+                RunAdhocctlHandlers(SCE_NET_ADHOCCTL_EVENT_CONNECT, 0);
+            } else {
+                tmp = WaitAndHandleEvent(members);
+                if (tmp < 0) {
+                    connectionState = tmp;
+                }
+                RunAdhocctlHandlers(SCE_NET_ADHOCCTL_EVENT_ERROR, /*actInThread*/ 0);
+                members->unk5 &= ~(0x1);
+                continue;
+            }
         }
-        if ((outBits & 0x400) != 0) {
-            sceKernelClearEventFlag(unpackedArgs->eventFlags, ~0x400);
-            //connectionState = FUN_00001ec8(param_2);
-            //if (connectionState < 0) goto LAB_000038a8;
-            //FUN_00002d40(5, 1);
-        }
-        tmp = g_Unk.connectionState;
 
+        // Adhoc Discover stuff, probably start discovery
+        if ((outBits & (1 << 8)) != 0) {
+            sceKernelClearEventFlag(members->eventFlags, ~(1 << 8));
+            connectionState = Discover(members);
+            if (connectionState >= 0) {
+                RunAdhocctlHandlers(SCE_NET_ADHOCCTL_EVENT_DISCOVER, 0);
+            } else {
+                tmp = WaitAndHandleEvent(members);
+                if (tmp < 0) {
+                    connectionState = tmp;
+                }
+                RunAdhocctlHandlers(SCE_NET_ADHOCCTL_EVENT_ERROR, /*actInThread*/ 0);
+                members->unk5 &= ~(0x1);
+                continue;
+            }
+        }
+        tmp = g_Members.connectionState;
+
+        // Adhoc Discover stuff
         if ((outBits & 0x800) != 0) {
-            sceKernelClearEventFlag(unpackedArgs->eventFlags, ~0x800);
+            sceKernelClearEventFlag(members->eventFlags, ~0x800);
             //connectionState = FUN_000020ac(param_2);
             //if (connectionState < 0) goto LAB_000038a8;
             //FUN_00002d40(5, 1);
-            tmp = g_Unk.connectionState;
+            tmp = g_Members.connectionState;
         }
-        g_Unk.connectionState = (s32) (tmp & 0xe0000000);
+        g_Members.connectionState = (s32) (tmp & 0xe0000000);
     }
 }
 
