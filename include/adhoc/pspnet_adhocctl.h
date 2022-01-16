@@ -16,7 +16,7 @@ extern const char g_SSIDPrefixRegKey[];
 #define SCE_NET_ADHOCCTL_EVENT_SCAN          0x3
 
 // TODO: Is this truly what this means?
-#define SCE_NET_ADHOCCTL_EVENT_DEVICE_UP     0x4
+#define SCE_NET_ADHOCCTL_EVENT_DEVICE_UP 0x8
 
 #define ADHOC_SUBTYPE_NORMALMODE 'L'
 #define ADHOC_SUBTYPE_GAMEMODE   'G'
@@ -35,6 +35,15 @@ enum AdhocIds {
 struct ProductStruct {
     enum AdhocIds adhocId;
     char product[9]; // Product Id, e.g. UCUS98612
+};
+
+enum ConnectionStates {
+    ConnectionState_Disconnected = 0,
+    ConnectionState_Connected    = 1,
+    ConnectionState_Unknown      = 2,
+    ConnectionState_GameMode     = 3,
+    ConnectionState_Unknown2     = 4,
+    ConnectionState_Unknown3     = 5
 };
 
 typedef char MacAddress[6];
