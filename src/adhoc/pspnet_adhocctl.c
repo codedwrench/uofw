@@ -2452,11 +2452,28 @@ s32 ThreadFunc(SceSize args, void *argp) {
         }
 
         // Adhoc Discover stuff, probably start discovery
-        if ((outBits & (1 << 8)) != 0) {
-            sceKernelClearEventFlag(members->eventFlags, ~(1 << 8));
+        if ((outBits & (1 << 10)) != 0) {
+            sceKernelClearEventFlag(members->eventFlags, ~(1 << 10));
             connectionState = Discover(members);
             if (connectionState >= 0) {
                 RunAdhocctlHandlers(SCE_NET_ADHOCCTL_EVENT_DISCOVER, 0);
+            } else {
+                tmp = WaitAndHandleEvent(members);
+                if (tmp < 0) {
+                    connectionState = tmp;
+                }
+                RunAdhocctlHandlers(SCE_NET_ADHOCCTL_EVENT_ERROR, /*actInThread*/ 1);
+                members->unk5 &= ~(0x1);
+                continue;
+            }
+        }
+
+        // Adhoc Discover stuff
+        if ((outBits & (1 << 11)) != 0) {
+            sceKernelClearEventFlag(members->eventFlags, ~(1 << 11));
+            connectionState = FUN_000020ac(members);
+            if (connectionState >= 0) {
+                RunAdhocctlHandlers(SCE_NET_ADHOCCTL_EVENT_DISCOVER, 1);
             } else {
                 tmp = WaitAndHandleEvent(members);
                 if (tmp < 0) {
@@ -2467,17 +2484,8 @@ s32 ThreadFunc(SceSize args, void *argp) {
                 continue;
             }
         }
-        tmp = g_Members.connectionState;
 
-        // Adhoc Discover stuff
-        if ((outBits & 0x800) != 0) {
-            sceKernelClearEventFlag(members->eventFlags, ~0x800);
-            //connectionState = FUN_000020ac(param_2);
-            //if (connectionState < 0) goto LAB_000038a8;
-            //FUN_00002d40(5, 1);
-            tmp = g_Members.connectionState;
-        }
-        g_Members.connectionState = (s32) (tmp & 0xe0000000);
+        g_Members.unk5 &= ~(0x1);
     }
 }
 
