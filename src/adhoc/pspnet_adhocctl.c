@@ -2242,7 +2242,6 @@ s32 JoinAdhoc(struct AdhocCtl_Members *members) {
 }
 
 s32 Discover(struct AdhocCtl_Members* members)
-
 {
     s32 ret = 0;
     s32 cnt = 0;
@@ -2313,6 +2312,86 @@ s32 Discover(struct AdhocCtl_Members* members)
     }
 
     return ret;
+}
+
+s32 DiscoverJoin(struct AdhocCtl_Members *members) 
+{
+  s32 ret;
+  s32 cnt = 0;
+  char unk[40];
+  u32 channel;
+
+  ret = SCE_ERROR_NET_ADHOCCTL_ALREADY_CONNECTED;
+  if (members->connectionState == ConnectionState_Disconnected) {
+    ret = SCE_ERROR_NET_ADHOCCTL_WLAN_SWITCH_DISABLED;
+    if (sceWlanGetSwitchState() != 0) {
+      while (true) {
+        cnt++;
+        ret = sceWlanDevAttach();
+
+        if (ret == 0 || ret == (s32)SCE_ERROR_NET_WLAN_ALREADY_ATTACHED) {
+          break;
+        }
+
+        // If any error which is not SCE_ERROR_NET_WLAN_DEVICE_NOT_READY, return
+        // errorcode
+        if ((ret >> 0x1f) &&
+            (ret != (s32)SCE_ERROR_NET_WLAN_DEVICE_NOT_READY)) {
+          return ret;
+        }
+
+        if (cnt > members->timeout) {
+          return SCE_ERROR_NET_ADHOCCTL_TIMEOUT;
+        }
+
+        sceKernelDelayThread(1000000);
+      }
+
+      members->unk5 &= ~(0x2);
+
+      ret = sceNetConfigUpInterface(g_WifiAdapter);
+      if (ret >= 0) {
+        ret = sceNetConfigSetIfEventFlag(g_WifiAdapter, members->eventFlags,
+                                         SCE_NET_ADHOCCTL_EVENT_DEVICE_UP);
+        if (ret >= 0) {
+          ret = GetChannelAndSSID(members, ssid, &channel);
+          if (ret >= 0) {
+            sceKernelMemset(unk, 0, 40);
+            unk[4] = 1;
+            unk[5] = (char) channel;
+            sceKernelMemcpy(&unk[6], ssid, ret);
+            ret = sceWlanGetSwitchState();
+
+            if (ret != 0) {
+              ret = WaitAndHandleEvent(members);
+              if (ret >= 0) {
+                // This probably wakes the psp up if a certain ssid is found?
+                // Assume that this is the joining function
+                ret = sceWlanSetWakeUp(1, unk);
+                if (ret >= 0) {
+                    ret = scePowerRequestSuspend();
+                    if (ret >= 0)
+                    {
+                        members->connectionState = ConnectionState_Unknown3;
+                        members->channel = &channel;
+                        return ret;
+                    }
+                    sceWlanSetWakeUp(0, &local_60);
+                }
+              }
+            } else {
+              ret = SCE_ERROR_NET_ADHOCCTL_WLAN_SWITCH_DISABLED;
+            }
+          }
+          sceNetConfigSetIfEventFlag(g_WifiAdapter, 0, 0);
+          sceNetConfigDownInterface(g_WifiAdapter);
+          sceWlanDevDetach();
+        }
+      }
+    }
+  }
+
+  return ret;
 }
 
 s32 ThreadFunc(SceSize args, void *argp) {
@@ -2471,7 +2550,7 @@ s32 ThreadFunc(SceSize args, void *argp) {
         // Adhoc Discover stuff
         if ((outBits & (1 << 11)) != 0) {
             sceKernelClearEventFlag(members->eventFlags, ~(1 << 11));
-            connectionState = FUN_000020ac(members);
+            connectionState = DiscoverJoin(members);
             if (connectionState >= 0) {
                 RunAdhocctlHandlers(SCE_NET_ADHOCCTL_EVENT_DISCOVER, 1);
             } else {
